@@ -31,7 +31,7 @@ class Game
 { 
     private canvas: HTMLCanvasElement;
     private engine: Engine;
-    private scene: Scene;
+    private scene: Scene; 
 
     private xrCamera: WebXRCamera | null; 
     private leftController: WebXRInputSource | null;
