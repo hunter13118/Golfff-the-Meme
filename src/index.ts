@@ -133,6 +133,50 @@ class Game
             }
         });
 
+        // must make clubs
+
+
+
+        // clubs must be selectable
+        // snap to position of controller
+
+        // reset rotation orientation and position upon being selected
+
+
+
+        // right hand for club
+
+        // left hand for ball
+
+
+        // club selection takes place in the radial wheel gui
+
+
+        // club ui accessable by selecting the golf bag
+
+        // all objects have gravity when selected
+        // golf bag will no longer have gravity when colliding with ground (standing or laying down)
+
+
+
+        // golf cart will exist
+
+        // camera will "sit" in golf cart
+        // passengers are allowed too (only two ppl in carts)
+
+        // gui for 
+
+
+
+        // golf bag will "sit" in the golf cart
+
+
+
+
+
+
+
+        /*
         // Create a parent transform
         var textTransform = new TransformNode("textTransform");
         textTransform.rotation.y = 270 * Math.PI / 180;
@@ -349,6 +393,8 @@ class Game
         zSliderHeader.color = "white";
         sliderPanel.addControl(zSliderHeader);
 
+        
+
         // Event handlers for the sliders
         xSlider.onValueChangedObservable.add((value) => {
             configurableMeshTransform.rotation.x = value * Math.PI / 180;
@@ -361,7 +407,7 @@ class Game
         zSlider.onValueChangedObservable.add((value) => {
             configurableMeshTransform.rotation.z = value * Math.PI / 180;
         });
-
+        */
 
         this.scene.debugLayer.show(); 
     }
