@@ -1,6 +1,6 @@
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
-import { Vector3, Color3, Space } from "@babylonjs/core/Maths/math";
+import { Vector3, Color3, Space, Matrix } from "@babylonjs/core/Maths/math";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { WebXRControllerComponent } from "@babylonjs/core/XR/motionController/webXRControllercomponent";
 import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
@@ -45,10 +45,8 @@ class Game
     private rightController: WebXRInputSource | null;
 
     private selectedObject: AbstractMesh | null;
+    private selectedRoot: TransformNode | null;
     private selectionTransform: TransformNode | null;
-    private driverTransform: TransformNode | null;
-    private ironTransform: TransformNode | null;
-    private putterTransform: TransformNode | null;
 
 
     private laserPointer: LinesMesh | null;
@@ -77,10 +75,7 @@ class Game
     
         this.selectedObject = null;
         this.selectionTransform = null;
-
-        this.driverTransform = null;
-        this.ironTransform = null;
-        this.putterTransform = null;
+        this.selectedRoot = null;
         
         this.laserPointer = null;
         this.bimanualLine = null;
@@ -130,13 +125,12 @@ class Game
         // Creates a default skybox
         const environment = this.scene.createDefaultEnvironment({
             createGround: true,
-            groundSize: 50,
-            skyboxSize: 50,
-            skyboxColor: new Color3(0, 0, 0)
+            groundSize: 50
         });
 
         // Make sure the environment and skybox is not pickable!
         environment!.ground!.isPickable = false;
+        environment!.ground!.position.y = -1;
         environment!.skybox!.isPickable = false;
 
         // Creates the XR experience helper
@@ -214,35 +208,73 @@ class Game
         SceneLoader.ImportMesh("", "assets/models/", "driver.obj", this.scene, (meshes) => {
             meshes[0].name = "driver";
             meshes[0].scaling = new Vector3(-.001, .001, .001);
-            meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
-            meshes[0].position = new Vector3(.659,-.57,.022);
-            meshes[0].setPivotPoint(new Vector3(0,0,0));
-            meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.MeshImpostor, {mass: 1}, this.scene);
+            //meshes[0].rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+            meshes[0].position = new Vector3(-.8,-.3,-.03);
+
+            var root = new TransformNode("driver-root", this.scene);
+            root.position = new Vector3(0,0,0);
+
+            meshes[0].parent = root;
+            root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+            root.position = new Vector3(0,0,0);
+
+
+
+            //meshes[0].position = new Vector3(.659,-.57,.022);
+            //meshes[0].setPivotMatrix(Matrix.Translation(-.03,.6,.6));
+            //meshes[0].setPivotMatrix(Matrix.Translation(-.6,0,-.8));
+
+            //meshes[0].position = new Vector3(0,2,2);
+            //meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.SphereImpostor, {mass: 1,restitution:.9}, this.scene);
+
         });
         SceneLoader.ImportMesh("", "assets/models/", "iron.obj", this.scene, (meshes) => {
             meshes[0].name = "iron";
             meshes[0].scaling = new Vector3(-.001, .001, .001);
-            meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
-            meshes[0].position = new Vector3(.35,-.502,.022);
-            meshes[0].setPivotPoint(new Vector3(0,0,0));
-            meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.MeshImpostor, {mass: 1}, this.scene);
+            //meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+            meshes[0].position = new Vector3(-.5,-.4,.0);
+            var root = new TransformNode("iron-root", this.scene);
+            root.position = new Vector3(0,0,0);
+
+            meshes[0].parent = root;
+            root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+            root.position = new Vector3(0,0,0);
+            //meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
 
 
         });
         SceneLoader.ImportMesh("", "assets/models/", "putter.obj", this.scene, (meshes) => {
             meshes[0].name = "putter";
             meshes[0].scaling = new Vector3(-.001, .001, .001);
-            meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
-            meshes[0].position = new Vector3(1.126,-.821,.022);
-            meshes[0].setPivotPoint(new Vector3(0,0,0));
-            meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.MeshImpostor, {mass: 1}, this.scene);
+            ///meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+            meshes[0].position = new Vector3(-1.34,-.4,.0);
+            var root = new TransformNode("putter-root", this.scene);
+            root.position = new Vector3(0,0,0);
+
+            meshes[0].parent = root;
+            root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+            root.position = new Vector3(0,0,0);
+            //meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
 
 
         });
-
+ 
         var ball = MeshBuilder.CreateSphere("ball", {segments:15, diameter:.2}, this.scene);
-        ball.position = new Vector3(0,0,0)
-        ball.physicsImpostor = new PhysicsImpostor(ball, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+        ball.position = new Vector3(0,0,0);
+        var root = new TransformNode("putter-root", this.scene);
+        root.position = new Vector3(0,0,0);
+
+        ball.parent = root;
+        //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+        root.position = new Vector3(0,0,0);
+        //ball.physicsImpostor = new PhysicsImpostor(ball, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+        
+        var fairway = MeshBuilder.CreateGround("fairway", {width:20, height:50}, this.scene);
+        fairway.position = new Vector3(0,0,5);
+        //fairway.rotation = new Vector3(90*Math.PI/180, 0,0);
+        fairway.isPickable = false;
+        fairway.physicsImpostor = new PhysicsImpostor(fairway, PhysicsImpostor.BoxImpostor, {mass:0 , restitution:.9}, this.scene);
+
 
         
         
@@ -302,18 +334,22 @@ class Game
                 {
                     this.selectedObject.disableEdgesRendering();
                     this.selectedObject = null;
+                    this.selectedRoot = null;
                 }
 
                 // If an object was hit, select it
                 if(pickInfo?.hit)
                 {
                     this.selectedObject = pickInfo!.pickedMesh;
+                    this.selectedRoot = <TransformNode>pickInfo!.pickedMesh?.parent;
                     this.selectedObject!.enableEdgesRendering();
-                    this.selectedObject!.position = this.rightController!.pointer.position;
+                    //this.selectedRoot!.position = this.rightController!.pointer!.position;
+                    this.selectedRoot!.position = new Vector3(0,0,0);
+                    this.selectedRoot!.parent = this.rightController!.grip!;
 
                     // Parent the object to the transform on the laser pointer
-                    this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
-                    this.selectedObject!.setParent(this.selectionTransform!);
+                    //this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
+                    //this.selectedRoot!.setParent(this.selectionTransform!);
                 }
             }
             else
@@ -324,7 +360,7 @@ class Game
                 // Release the object from the laser pointer
                 if(this.selectedObject)
                 {
-                    this.selectedObject!.setParent(null);
+                    this.selectedRoot!.setParent(null);
                 }  
             }
         }
