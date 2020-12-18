@@ -1,44 +1,65 @@
-/* CSCI 5619 Lecture 20, Fall 2020
- * Author: Evan Suma Rosenberg
- * License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
- */ 
-
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
-import { Vector3, Color3, Color4 } from "@babylonjs/core/Maths/math";
+import { Vector3, Color3, Space } from "@babylonjs/core/Maths/math";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
-import { Logger } from "@babylonjs/core/Misc/logger";
+import { WebXRControllerComponent } from "@babylonjs/core/XR/motionController/webXRControllercomponent";
 import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
 import { WebXRCamera } from "@babylonjs/core/XR/webXRCamera";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { Logger } from "@babylonjs/core/Misc/logger";
+import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import {MeshBuilder} from  "@babylonjs/core/Meshes/meshBuilder";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { LinesMesh } from "@babylonjs/core/Meshes/linesMesh";
+import { Ray } from "@babylonjs/core/Culling/ray";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder"
-import { Mesh } from "@babylonjs/core/Meshes/mesh"
-import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture"
-import { VirtualKeyboard } from "@babylonjs/gui/2D/controls/virtualKeyboard" 
-import { InputText } from "@babylonjs/gui/2D/controls/inputText" 
-import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock"
-import { RadioButton } from "@babylonjs/gui/2D/controls/radioButton"
-import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel"
-import { Control } from "@babylonjs/gui/2D/controls/control"
-import { Slider } from "@babylonjs/gui/2D/controls/sliders/slider"
+import { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+
+
+import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader"
+
+
+
+// Physics
+import * as cannon from "cannon" 
+import { CannonJSPlugin } from "@babylonjs/core/Physics/Plugins/cannonJSPlugin";
+import { PhysicsImpostor } from "@babylonjs/core/Physics/physicsImpostor";
+import "@babylonjs/core/Physics/physicsEngineComponent";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
+import "@babylonjs/core/Materials/standardMaterial"
+import "@babylonjs/loaders/OBJ/objFileLoader"
+import "@babylonjs/loaders/glTF/2.0/glTFLoader"
 
 class Game 
 { 
     private canvas: HTMLCanvasElement;
     private engine: Engine;
-    private scene: Scene; 
+    private scene: Scene;
 
     private xrCamera: WebXRCamera | null; 
     private leftController: WebXRInputSource | null;
     private rightController: WebXRInputSource | null;
 
-    private configurableMesh: Mesh | null;
+    private selectedObject: AbstractMesh | null;
+    private selectionTransform: TransformNode | null;
+    private driverTransform: TransformNode | null;
+    private ironTransform: TransformNode | null;
+    private putterTransform: TransformNode | null;
 
+
+    private laserPointer: LinesMesh | null;
+    private bimanualLine: LinesMesh | null;
+    private miniatureObject: InstancedMesh | null;
+
+    private balls: Mesh [];
+
+    private previousLeftControllerPosition: Vector3;
+    private previousRightControllerPosition: Vector3;
+    
     constructor()
     {
         // Get the canvas element 
@@ -53,8 +74,23 @@ class Game
         this.xrCamera = null;
         this.leftController = null;
         this.rightController = null;
+    
+        this.selectedObject = null;
+        this.selectionTransform = null;
 
-        this.configurableMesh = null;
+        this.driverTransform = null;
+        this.ironTransform = null;
+        this.putterTransform = null;
+        
+        this.laserPointer = null;
+        this.bimanualLine = null;
+        this.miniatureObject = null;
+
+        this.balls = [];
+
+        this.previousLeftControllerPosition = Vector3.Zero();
+        this.previousRightControllerPosition = Vector3.Zero();
+
     }
 
     start() : void 
@@ -94,12 +130,12 @@ class Game
         // Creates a default skybox
         const environment = this.scene.createDefaultEnvironment({
             createGround: true,
-            groundSize: 100,
+            groundSize: 50,
             skyboxSize: 50,
             skyboxColor: new Color3(0, 0, 0)
         });
 
-        // Make sure the ground and skybox are not pickable!
+        // Make sure the environment and skybox is not pickable!
         environment!.ground!.isPickable = false;
         environment!.skybox!.isPickable = false;
 
@@ -109,14 +145,45 @@ class Game
         // Assigns the web XR camera to a member variable
         this.xrCamera = xrHelper.baseExperience.camera;
 
-        // Remove default teleportation
+        // Remove default teleportation and pointer selection
         xrHelper.teleportation.dispose();
+        xrHelper.pointerSelection.dispose();
 
-        // Assign the left and right controllers to member variables
+        // Create points for the laser pointer
+        var laserPoints = [];
+        laserPoints.push(new Vector3(0, 0, 0));
+        laserPoints.push(new Vector3(0, 0, 10));
+
+        // Create a laser pointer and make sure it is not pickable
+        this.laserPointer = MeshBuilder.CreateLines("laserPointer", {points: laserPoints}, this.scene);
+        this.laserPointer.color = Color3.Blue();
+        this.laserPointer.alpha = .5;
+        this.laserPointer.visibility = 0;
+        this.laserPointer.isPickable = false;
+
+        // Create points for the bimanual line
+        var bimanualPoints = [];
+        bimanualPoints.push(new Vector3(0, 0, 0));
+        bimanualPoints.push(new Vector3(0, 0, 1));
+
+       // Create a dashed line between the two controllers
+        this.bimanualLine = MeshBuilder.CreateDashedLines("bimanualLine", {points: bimanualPoints}, this.scene);
+        this.bimanualLine.color = Color3.Gray();
+        this.bimanualLine.alpha = .5;
+        this.bimanualLine.visibility = 0;
+        this.bimanualLine.isPickable = false;
+
+        // This transform will be used to attach objects to the laser pointer
+        this.selectionTransform = new TransformNode("selectionTransform", this.scene);
+        this.selectionTransform.parent = this.laserPointer;
+
+        // Attach the laser pointer to the right controller when it is connected
         xrHelper.input.onControllerAddedObservable.add((inputSource) => {
             if(inputSource.uniqueId.endsWith("right"))
             {
                 this.rightController = inputSource;
+                this.laserPointer!.parent = this.rightController.pointer;
+                this.laserPointer!.visibility = 1;
             }
             else 
             {
@@ -124,51 +191,18 @@ class Game
             }  
         });
 
-        // Don't forget to deparent objects from the controllers or they will be destroyed!
+        // Don't forget to deparent the laser pointer or it will be destroyed!
         xrHelper.input.onControllerRemovedObservable.add((inputSource) => {
 
             if(inputSource.uniqueId.endsWith("right")) 
             {
-
+                this.laserPointer!.parent = null;
+                this.laserPointer!.visibility = 0;
             }
         });
 
-        // must make clubs
-
-
-
-        // clubs must be selectable
-        // snap to position of controller
-
-        // reset rotation orientation and position upon being selected
-
-
-
-        // right hand for club
-
-        // left hand for ball
-
-
-        // club selection takes place in the radial wheel gui
-
-
-        // club ui accessable by selecting the golf bag
-
-        // all objects have gravity when selected
-        // golf bag will no longer have gravity when colliding with ground (standing or laying down)
-
-
-
-        // golf cart will exist
-
-        // camera will "sit" in golf cart
-        // passengers are allowed too (only two ppl in carts)
-
-        // gui for 
-
-
-
-        // golf bag will "sit" in the golf cart
+        // Enable physics engine with no gravity
+        this.scene.enablePhysics(new Vector3(0, -9.81, 0), new CannonJSPlugin(undefined, undefined, cannon));
 
 
 
@@ -176,246 +210,196 @@ class Game
 
 
 
-        /*
-        // Create a parent transform
-        var textTransform = new TransformNode("textTransform");
-        textTransform.rotation.y = 270 * Math.PI / 180;
 
-        // Create a plane for a text block
-        var staticTextPlane = MeshBuilder.CreatePlane("textPlane", {width: 10, height: 5}, this.scene);
-        staticTextPlane.position = new Vector3(0, 7, 8);
-        staticTextPlane.isPickable = false;
-        staticTextPlane.parent = textTransform;
+        SceneLoader.ImportMesh("", "assets/models/", "driver.obj", this.scene, (meshes) => {
+            meshes[0].name = "driver";
+            meshes[0].scaling = new Vector3(-.001, .001, .001);
+            meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+            meshes[0].position = new Vector3(.659,-.57,.022);
+            meshes[0].setPivotPoint(new Vector3(0,0,0));
+            meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.MeshImpostor, {mass: 1}, this.scene);
+        });
+        SceneLoader.ImportMesh("", "assets/models/", "iron.obj", this.scene, (meshes) => {
+            meshes[0].name = "iron";
+            meshes[0].scaling = new Vector3(-.001, .001, .001);
+            meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+            meshes[0].position = new Vector3(.35,-.502,.022);
+            meshes[0].setPivotPoint(new Vector3(0,0,0));
+            meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.MeshImpostor, {mass: 1}, this.scene);
 
-        // Create a dynamic texture for the text block
-        var staticTextTexture = AdvancedDynamicTexture.CreateForMesh(staticTextPlane, 1000, 500);
-        staticTextTexture.background = "#414163";
 
-        // Create a static text block
-        var staticText = new TextBlock();
-        staticText.text = "";
-        staticText.color = "white";
-        staticText.fontSize = 32;
-        staticText.textHorizontalAlignment = TextBlock.HORIZONTAL_ALIGNMENT_LEFT;
-        staticText.textVerticalAlignment = TextBlock.VERTICAL_ALIGNMENT_TOP;
-        staticTextTexture.addControl(staticText);
+        });
+        SceneLoader.ImportMesh("", "assets/models/", "putter.obj", this.scene, (meshes) => {
+            meshes[0].name = "putter";
+            meshes[0].scaling = new Vector3(-.001, .001, .001);
+            meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+            meshes[0].position = new Vector3(1.126,-.821,.022);
+            meshes[0].setPivotPoint(new Vector3(0,0,0));
+            meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.MeshImpostor, {mass: 1}, this.scene);
 
-        // Create a plane for a virtual keyboard
-        var keyboardPlane = MeshBuilder.CreatePlane("keyboardPlane", {}, this.scene);
-        keyboardPlane.position = new Vector3(0, 1.6, 1);
-        keyboardPlane.parent = textTransform;
 
-        // Create a dynamic texture for the virtual keyboard
-        var keyboardTexture = AdvancedDynamicTexture.CreateForMesh(keyboardPlane, 1024, 1024);
-
-        // Create a keyboard input text field
-        var keyboardInput = new InputText(); 
-        keyboardInput.top = -260;
-        keyboardInput.width = 1;
-        keyboardInput.height = "80px";
-        keyboardInput.fontSize = 36;
-        keyboardInput.color = "white";
-        keyboardInput.background = "#070707";    
-		keyboardTexture.addControl(keyboardInput);
-
-        // Create a virtual keyboard
-        var virtualKeyboard = VirtualKeyboard.CreateDefaultLayout("virtualKeyboard");
-        virtualKeyboard.scaleX = 2.0;
-        virtualKeyboard.scaleY = 2.0;
-        keyboardTexture.addControl(virtualKeyboard);
-
-        // This connects automatically hides the keyboard
-        //virtualKeyboard.connect(keyboardInput);
-
-        // This keeps the keyboard visible
-        virtualKeyboard.onKeyPressObservable.add((key) => {
-            switch(key)
-            {
-                // Backspace
-                case '\u2190':
-                    keyboardInput.processKey(8);
-                    break;
-
-                // Shift
-                case '\u21E7':
-                    virtualKeyboard.shiftState = virtualKeyboard.shiftState == 0 ? 1 : 0;
-                    virtualKeyboard.applyShiftState(virtualKeyboard.shiftState);
-                    break;
-
-                // Enter
-                case '\u21B5':
-                    keyboardInput.processKey(13);
-                    staticText.text += "\n> " + keyboardInput.text;
-                    break;  
-                
-                default:
-                    keyboardInput.processKey(-1, virtualKeyboard.shiftState == 0 ? key : key.toUpperCase());
-            }
         });
 
-        // Create a parent transform for the object configuration panel
-        var configTransform = new TransformNode("textTransform");
-
-        // Create a plane for the object configuration panel
-        var configPlane = MeshBuilder.CreatePlane("configPlane", {width: 1.5, height: .5}, this.scene);
-        configPlane.position = new Vector3(0, 2, 1);
-        configPlane.parent = configTransform;
-
-        // Create a dynamic texture the object configuration panel
-        var configTexture = AdvancedDynamicTexture.CreateForMesh(configPlane, 1500, 500);
-        configTexture.background = (new Color4(.5, .5, .5, .25)).toHexString();
-
-        // Create a stack panel for the columns
-        var columnPanel = new StackPanel();
-        columnPanel.isVertical = false;
-        columnPanel.widthInPixels = 1400;
-        columnPanel.horizontalAlignment = StackPanel.HORIZONTAL_ALIGNMENT_LEFT;
-        columnPanel.paddingLeftInPixels = 50;
-        columnPanel.paddingTopInPixels = 50;
-        configTexture.addControl(columnPanel);
-
-        // Create a stack panel for the radio buttons
-        var radioButtonPanel = new StackPanel();
-        radioButtonPanel.widthInPixels = 400;
-        radioButtonPanel.isVertical = true;
-        radioButtonPanel.verticalAlignment = StackPanel.VERTICAL_ALIGNMENT_TOP;
-        columnPanel.addControl(radioButtonPanel);
-
-        // Create radio buttons for changing the object type
-        var radioButton1 = new RadioButton("radioButton1");
-        radioButton1.width = "50px";
-        radioButton1.height = "50px";
-        radioButton1.color = "lightblue";
-        radioButton1.background = "black";
-        
-        var radioButton2 = new RadioButton("radioButton1");
-        radioButton2.width = "50px";
-        radioButton2.height = "50px";
-        radioButton2.color = "lightblue";
-        radioButton2.background = "black";
-
-        // Text headers for the radio buttons
-        var radioButton1Header = Control.AddHeader(radioButton1, "box", "500px", {isHorizontal: true, controlFirst: true});
-        radioButton1Header.horizontalAlignment = StackPanel.HORIZONTAL_ALIGNMENT_LEFT;
-        radioButton1Header.height = "75px";
-        radioButton1Header.fontSize = "48px";
-        radioButton1Header.color = "white";
-        radioButtonPanel.addControl(radioButton1Header);
-
-        var radioButton2Header = Control.AddHeader(radioButton2, "sphere", "500px", {isHorizontal: true, controlFirst: true});
-        radioButton2Header.horizontalAlignment = StackPanel.HORIZONTAL_ALIGNMENT_LEFT;
-        radioButton2Header.height = "75px";
-        radioButton2Header.fontSize = "48px";
-        radioButton2Header.color = "white";
-        radioButtonPanel.addControl(radioButton2Header);
-
-        // Create a transform node to hold the configurable mesh
-        var configurableMeshTransform = new TransformNode("configurableMeshTransform", this.scene);
-        configurableMeshTransform.position = new Vector3(0, 1, 4);
-
-        // Event handlers for the radio buttons
-        radioButton1.onIsCheckedChangedObservable.add( (state) => {
-            if(state)
-            {
-                if(this.configurableMesh)
-                {
-                    this.configurableMesh.dispose();
-                }
-                this.configurableMesh = MeshBuilder.CreateBox("configurableMesh", {size: 1}, this.scene);
-                this.configurableMesh.parent = configurableMeshTransform;
-            
-            }
-        });   
-
-        radioButton2.onIsCheckedChangedObservable.add( (state) => {
-            if(state)
-            {
-                if(this.configurableMesh)
-                {
-                    this.configurableMesh.dispose();
-                }
-                this.configurableMesh = MeshBuilder.CreateSphere("configurableMesh", {diameter: 1}, this.scene);
-                this.configurableMesh.parent = configurableMeshTransform;
-            }
-        }); 
-
-        // Create a stack panel for the radio buttons
-        var sliderPanel = new StackPanel();
-        sliderPanel.widthInPixels = 500;
-        sliderPanel.isVertical = true;
-        sliderPanel.verticalAlignment = StackPanel.VERTICAL_ALIGNMENT_TOP;
-        columnPanel.addControl(sliderPanel);
-
-        // Create sliders for the x, y, and z rotation
-        var xSlider = new Slider();
-        xSlider.minimum = 0;
-        xSlider.maximum = 360;
-        xSlider.value = 0;
-        xSlider.color = "lightblue";
-        xSlider.height = "50px";
-        xSlider.width = "500px";
-
-        var ySlider = new Slider();
-        ySlider.minimum = 0;
-        ySlider.maximum = 360;
-        ySlider.value = 0;
-        ySlider.color = "lightblue";
-        ySlider.height = "50px";
-        ySlider.width = "500px";
-
-        var zSlider = new Slider();
-        zSlider.minimum = 0;
-        zSlider.maximum = 360;
-        zSlider.value = 0;
-        zSlider.color = "lightblue";
-        zSlider.height = "50px";
-        zSlider.width = "500px";
-
-        // Create text headers for the sliders
-        var xSliderHeader = Control.AddHeader(xSlider, "x", "50px", {isHorizontal: true, controlFirst: false});
-        xSliderHeader.horizontalAlignment = StackPanel.HORIZONTAL_ALIGNMENT_LEFT;
-        xSliderHeader.height = "75px";
-        xSliderHeader.fontSize = "48px";
-        xSliderHeader.color = "white";
-        sliderPanel.addControl(xSliderHeader);
-
-        var ySliderHeader = Control.AddHeader(ySlider, "y", "50px", {isHorizontal: true, controlFirst: false});
-        ySliderHeader.horizontalAlignment = StackPanel.HORIZONTAL_ALIGNMENT_LEFT;
-        ySliderHeader.height = "75px";
-        ySliderHeader.fontSize = "48px";
-        ySliderHeader.color = "white";
-        sliderPanel.addControl(ySliderHeader);
-
-        var zSliderHeader = Control.AddHeader(zSlider, "z", "50px", {isHorizontal: true, controlFirst: false});
-        zSliderHeader.horizontalAlignment = StackPanel.HORIZONTAL_ALIGNMENT_LEFT;
-        zSliderHeader.height = "75px";
-        zSliderHeader.fontSize = "48px";
-        zSliderHeader.color = "white";
-        sliderPanel.addControl(zSliderHeader);
+        var ball = MeshBuilder.CreateSphere("ball", {segments:15, diameter:.2}, this.scene);
+        ball.position = new Vector3(0,0,0)
+        ball.physicsImpostor = new PhysicsImpostor(ball, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
 
         
-
-        // Event handlers for the sliders
-        xSlider.onValueChangedObservable.add((value) => {
-            configurableMeshTransform.rotation.x = value * Math.PI / 180;
-        });
-
-        ySlider.onValueChangedObservable.add((value) => {
-            configurableMeshTransform.rotation.y = value * Math.PI / 180;
-        });
-
-        zSlider.onValueChangedObservable.add((value) => {
-            configurableMeshTransform.rotation.z = value * Math.PI / 180;
-        });
-        */
-
+        
         this.scene.debugLayer.show(); 
     }
 
     // The main update loop will be executed once per frame before the scene is rendered
     private update() : void
     {
- 
+        if(this.leftController && this.rightController)
+        {
+            // Update bimanual line position and rotation
+            this.bimanualLine!.position = this.leftController.grip!.position;
+            this.bimanualLine!.lookAt(this.rightController.grip!.position);
+
+            // Update bimanual line scale
+            this.bimanualLine!.scaling.z = this.rightController.grip!.position.subtract(this.leftController.grip!.position).length();
+        }
+
+        // Polling for controller input
+        this.processControllerInput();  
+
+        // Update the previous controller positions for next frame
+        if(this.rightController)
+        {
+            this.previousRightControllerPosition = this.rightController.grip!.position.clone();
+        }
+        if(this.leftController)
+        {
+            this.previousLeftControllerPosition = this.leftController.grip!.position.clone();
+        }
+
+    }
+
+    // Process event handlers for controller input
+    private processControllerInput()
+    {
+        this.onRightTrigger(this.rightController?.motionController?.getComponent("xr-standard-trigger"));
+        this.onRightThumbstick(this.rightController?.motionController?.getComponent("xr-standard-thumbstick"));
+        this.onRightSqueeze(this.rightController?.motionController?.getComponent("xr-standard-squeeze"));
+        this.onLeftSqueeze(this.leftController?.motionController?.getComponent("xr-standard-squeeze"));
+    }
+
+    private onRightTrigger(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                this.laserPointer!.color = Color3.Green();
+
+                var ray = new Ray(this.rightController!.pointer.position, this.rightController!.pointer.forward, 10);
+                var pickInfo = this.scene.pickWithRay(ray);
+
+                // Deselect the currently selected object 
+                if(this.selectedObject)
+                {
+                    this.selectedObject.disableEdgesRendering();
+                    this.selectedObject = null;
+                }
+
+                // If an object was hit, select it
+                if(pickInfo?.hit)
+                {
+                    this.selectedObject = pickInfo!.pickedMesh;
+                    this.selectedObject!.enableEdgesRendering();
+                    this.selectedObject!.position = this.rightController!.pointer.position;
+
+                    // Parent the object to the transform on the laser pointer
+                    this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
+                    this.selectedObject!.setParent(this.selectionTransform!);
+                }
+            }
+            else
+            {
+                // Reset the laser pointer color
+                this.laserPointer!.color = Color3.Blue();
+
+                // Release the object from the laser pointer
+                if(this.selectedObject)
+                {
+                    this.selectedObject!.setParent(null);
+                }  
+            }
+        }
+    }
+
+    private onRightThumbstick(component?: WebXRControllerComponent)
+    {
+        // If we have an object that is currently attached to the laser pointer
+        if(component?.changes.axes && this.selectedObject && this.selectedObject.parent)
+        {
+            // Use delta time to calculate the proper speed
+            var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
+
+            // Translate the object along the depth ray in world space
+            this.selectedObject.translate(this.laserPointer!.forward, moveDistance, Space.WORLD);
+        }
+    }
+
+    private onRightSqueeze(component?: WebXRControllerComponent)
+    {
+        if(this.selectedObject && this.leftController)
+        {
+            if(component?.changes.pressed)
+            {
+                // Button down
+                if(component?.pressed)
+                {
+                    this.bimanualLine!.visibility = 1;
+                    this.miniatureObject = new InstancedMesh('miniatureObject', <Mesh>this.selectedObject);
+                }
+                // Button release
+                else
+                {
+                    this.bimanualLine!.visibility = 0;
+                    this.miniatureObject?.dispose();
+                }
+            }
+
+            if(component?.pressed)
+            {
+                // Position manipulation
+                var midpoint = this.rightController!.grip!.position.add(this.leftController.grip!.position).scale(.5);
+                var previousMidpoint = this.previousRightControllerPosition.add(this.previousLeftControllerPosition).scale(.5);
+                var positionChange = midpoint.subtract(previousMidpoint);
+                this.selectedObject.translate(positionChange!.normalizeToNew(), positionChange.length(), Space.WORLD);
+
+                // Rotation manipulation
+                var bimanualVector = this.rightController!.grip!.position.subtract(this.leftController!.grip!.position).normalize();
+                var previousBimanualVector = this.previousRightControllerPosition.subtract(this.previousLeftControllerPosition).normalize();
+
+                // Some linear algebra to calculate the angle and axis of rotation
+                var angle = Math.acos(Vector3.Dot(previousBimanualVector, bimanualVector));
+                var axis = Vector3.Cross(previousBimanualVector, bimanualVector).normalize();
+                this.selectedObject.rotate(axis, angle, Space.WORLD);
+
+                // Update the position, orientation, and scale of the miniature object
+                this.miniatureObject!.position = midpoint;
+                this.miniatureObject!.rotationQuaternion = this.selectedObject.absoluteRotationQuaternion;
+                this.miniatureObject!.scaling = this.selectedObject.scaling.scale(.1);
+            }
+        }
+    }
+
+    private onLeftSqueeze(component?: WebXRControllerComponent)
+    {
+        // Only add scale manipulation if the right squeeze button is already being pressed
+        if(component?.pressed && this.selectedObject &&
+            this.rightController?.motionController?.getComponent("xr-standard-squeeze").pressed)
+        {
+            // Scale manipulation
+            var bimanualVector = this.rightController!.grip!.position.subtract(this.leftController!.grip!.position);
+            var previousBimanualVector = this.previousRightControllerPosition.subtract(this.previousLeftControllerPosition);
+            var scaleFactor = bimanualVector.length() / previousBimanualVector.length();
+            this.selectedObject.scaling = this.selectedObject.scaling.scale(scaleFactor);
+        }
     }
 
 }
