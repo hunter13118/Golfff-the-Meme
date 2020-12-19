@@ -33,6 +33,8 @@ import "@babylonjs/inspector";
 import "@babylonjs/core/Materials/standardMaterial"
 import "@babylonjs/loaders/OBJ/objFileLoader"
 import "@babylonjs/loaders/glTF/2.0/glTFLoader"
+import { ActionManager } from "@babylonjs/core/Actions/actionManager";
+import { SetValueAction } from "@babylonjs/core";
 
 class Game 
 { 
@@ -54,7 +56,7 @@ class Game
     private miniatureObject: InstancedMesh | null;
 
     private clubs: Array<Mesh>;
-    private clubsimposters: Array<PhysicsImpostor>;
+    private clubsimposters: Array<Mesh>;
     private balls: Array<Mesh>;
     private ballsImposters: Array<PhysicsImpostor>
 
@@ -202,10 +204,10 @@ class Game
         });
 
         // Enable physics engine with no gravity
-        this.scene.enablePhysics(new Vector3(0, -9.81, 0), new CannonJSPlugin(undefined, undefined, cannon));
+        this.scene.enablePhysics(new Vector3(0, -9.81, .0), new CannonJSPlugin(undefined, undefined, cannon));
 
 
-
+        this.scene.collisionsEnabled = true;
 
 
 
@@ -229,7 +231,7 @@ class Game
 
             meshes[0].parent = root;
             root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-            root.position = new Vector3(1,2,1);
+            root.position = new Vector3(2,2,1);
 
 
 
@@ -243,9 +245,13 @@ class Game
             root.isVisible = false;
             root.isPickable = false;
 
-            meshes[0].physicsImpostor.registerOnPhysicsCollide(this.ballsImposters, this.clubToBall);
+            //head.physicsImpostor.registerOnPhysicsCollide(this.ballsImposters, this.clubToBall);
+            meshes[0].physicsImpostor.sleep();
+
+            meshes[0].checkCollisions = true;
 
             this.clubs.push(<Mesh>meshes[0]);
+            this.clubsimposters.push(head);
 
 
         });
@@ -270,10 +276,16 @@ class Game
             root.position = new Vector3(1,4,6);
 
             meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+            meshes[0].physicsImpostor.sleep();
+
             root.isVisible = false;
             root.isPickable = false;
-            this.clubs.push(<Mesh>meshes[0]);
 
+            meshes[0].checkCollisions = true;
+
+
+            this.clubs.push(<Mesh>meshes[0]);
+            this.clubsimposters.push(head);
 
         });
         SceneLoader.ImportMesh("", "assets/models/", "putter.obj", this.scene, (meshes) => {
@@ -299,9 +311,9 @@ class Game
             root.isVisible = false;
             root.isPickable = false;
 
-
+            meshes[0].physicsImpostor.sleep();
             this.clubs.push(<Mesh>meshes[0]);
-
+            this.clubsimposters.push(head);
 
         });
  
@@ -318,15 +330,32 @@ class Game
 
         ball.parent = root;
         //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-        root.position = new Vector3(5,4,0);
+        root.position = new Vector3(0,2,.2);
         ball.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
 
+
+        ball.checkCollisions = true;
+
+        ball.physicsImpostor.sleep();
+
         this.balls.push(ball);
-        
+        /*ball.actionManager?.registerAction(
+            new SetValueAction(
+                {
+                    trigger: ActionManager.OnIntersectionEnterTrigger,
+                    parameter: othermesh
+                },
+                ball,
+                function () {
+                    console.log('hello');
+                }
+            )
+            
+        );*/
 
 
 
-
+ 
 
 
         var fairway = MeshBuilder.CreateGround("fairway", {width:20, height:50}, this.scene);
@@ -334,6 +363,9 @@ class Game
         //fairway.rotation = new Vector3(90*Math.PI/180, 0,0);
         fairway.isPickable = false;
         fairway.physicsImpostor = new PhysicsImpostor(fairway, PhysicsImpostor.BoxImpostor, {mass:0 , restitution:.9}, this.scene);
+
+
+        //ball.physicsImpostor.applyImpulse(new Vector3(0,1,1), ball.getAbsolutePosition());
 
 
         this.scene.getPhysicsEngine()!.setTimeStep(1/100);
@@ -370,6 +402,21 @@ class Game
             this.previousLeftControllerPosition = this.leftController.grip!.position.clone();
         }
 
+        // i guess that i have to do the collisions in update... i am sorry...
+
+        console.log('is this even working');
+        var temp1 = 0;
+        var temp2 = 0;
+        for (var i = 0; i < this.clubs.length; i++){
+            for (var j = 0; j < this.balls.length; j++){
+                if(this.clubs[i].intersectsMesh(this.balls[j])){
+                    this.clubToBall(i, j);
+                }
+            }
+        }
+
+
+        //this.balls[0]!.physicsImpostor!.applyImpulse(new Vector3(0,1,1), this.balls[0]);
 
 
     }
@@ -383,8 +430,39 @@ class Game
         this.onLeftSqueeze(this.leftController?.motionController?.getComponent("xr-standard-squeeze"));
     }
 
-    private clubToBall(club: PhysicsImpostor, ball:PhysicsImpostor){
-        //ball.applyImpulse(ball.)
+    private clubToBall(club: number, ball:number){
+        var temp = club;
+        var temp2 = ball;
+        /*if(this.clubsimposters.includes(club)){
+            for(var i = 0; i < this.clubsimposters.length; i++){
+                if (this.clubsimposters[i] == club){
+                    temp = i;
+                }
+            }
+        }
+        if(this.ballsImposters.includes(ball)){
+            for(var i = 0; i < this.ballsImposters.length; i++){
+                if (this.ballsImposters[i] == ball){
+                    temp2 = i;
+                }
+            }
+        }*/
+
+
+        if(this.clubs[temp].name.includes("driv")){
+            // do the medium height impulse
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,2,0)), this.balls[temp2].getAbsolutePosition());
+            //this.balls[temp2].physicsImpostor!.applyImpulse( new Vector3(0,3,3), this.balls[temp2].getAbsolutePosition());
+
+        }
+        else if(this.clubs[temp].name.includes("iron")){
+            // do the high height impulse
+            this.ballsImposters[temp2].applyImpulse( this.balls[temp2].position.subtract(this.clubs[temp].position.subtract(new Vector3(.62,-.142,-.058))), this.clubs[temp].position.subtract(new Vector3(.62,-.942,-.058)))
+        }
+        else {
+            // do the low height impulse
+            //this.ballsImposters[temp2].applyImpulse( this.balls[temp2].position.subtract(this.clubs[temp].position.subtract(new Vector3(.4,-.812,-.058))), this.clubs[temp].position.subtract(new Vector3(.4,-.912,-.058)))
+        }
     }
 
     private onRightTrigger(component?: WebXRControllerComponent)
