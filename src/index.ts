@@ -24,6 +24,18 @@ import { PointerEventTypes, PointerInfo } from "@babylonjs/core/Events/pointerEv
 import { PickingInfo } from "@babylonjs/core/Collisions";
 
 
+import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture"
+import { VirtualKeyboard } from "@babylonjs/gui/2D/controls/virtualKeyboard" 
+import { InputText } from "@babylonjs/gui/2D/controls/inputText" 
+import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock"
+import { RadioButton } from "@babylonjs/gui/2D/controls/radioButton"
+import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel"
+import { Control } from "@babylonjs/gui/2D/controls/control"
+import { GUI3DManager } from "@babylonjs/gui/3D/gui3DManager"
+import { Button3D } from "@babylonjs/gui/3D"
+
+
+
 
 // Physics
 import * as cannon from "cannon" 
@@ -34,9 +46,17 @@ import "@babylonjs/core/Physics/physicsEngineComponent";
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
+<<<<<<< HEAD
 import "@babylonjs/core/Materials/standardMaterial";
 import "@babylonjs/loaders/OBJ/objFileLoader";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader";
+=======
+import "@babylonjs/core/Materials/standardMaterial"
+import "@babylonjs/loaders/OBJ/objFileLoader"
+import "@babylonjs/loaders/glTF/2.0/glTFLoader"
+import { ActionManager } from "@babylonjs/core/Actions/actionManager";
+import { GroundBuilder, SetValueAction } from "@babylonjs/core";
+>>>>>>> The-Game-Itself
 
 class Game 
 { 
@@ -49,7 +69,7 @@ class Game
     private rightController: WebXRInputSource | null;
 
     private selectedObject: AbstractMesh | null;
-    private selectedRoot: TransformNode | null;
+    private selectedRoot: Mesh | null;
     private selectionTransform: TransformNode | null;
 
 
@@ -57,7 +77,11 @@ class Game
     private bimanualLine: LinesMesh | null;
     private miniatureObject: InstancedMesh | null;
 
-    private balls: Mesh [];
+    private clubs: Array<Mesh>;
+    private clubsimposters: Array<Mesh>;
+    private balls: Array<Mesh>;
+    private ballsImposters: Array<PhysicsImpostor>
+    private bags: Array<Mesh>;
 
     private pickInfo: PickingInfo | null;
 
@@ -87,7 +111,11 @@ class Game
         this.bimanualLine = null;
         this.miniatureObject = null;
 
+        this.clubs = [];
+        this.clubsimposters = []
         this.balls = [];
+        this.ballsImposters = [];
+        this.bags = [];
 
         this.pickInfo = null;
 
@@ -208,27 +236,36 @@ class Game
         });
 
         // Enable physics engine with no gravity
-        this.scene.enablePhysics(new Vector3(0, -9.81, 0), new CannonJSPlugin(undefined, undefined, cannon));
+        this.scene.enablePhysics(new Vector3(0, -9.81, .0), new CannonJSPlugin(undefined, undefined, cannon));
 
 
+        this.scene.collisionsEnabled = true;
+
+        var manager = new GUI3DManager(this.scene);
+
+        // golf clubs come from https://free3d.com/3d-model/golf-clubs-82208.html
 
 
-
-
-
-
-        SceneLoader.ImportMesh("", "assets/models/", "driver.obj", this.scene, (meshes) => {
+        /*SceneLoader.ImportMesh("", "assets/models/", "driver.obj", this.scene, (meshes) => {
             meshes[0].name = "driver";
             meshes[0].scaling = new Vector3(-.001, .001, .001);
             //meshes[0].rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
             meshes[0].position = new Vector3(-.8,-.3,-.03);
 
-            var root = new TransformNode("driver-root", this.scene);
+            var root = MeshBuilder.CreateSphere("driver-root", {diameter:.5, segments : 5} ,this.scene);
             root.position = new Vector3(0,0,0);
+
+            var head = MeshBuilder.CreateBox("driver head", {size:.15}, this.scene)
+
+            head.parent = root;
+            head.position = new Vector3(.63,-.85,-.058);
+            head.isPickable = false;
+            head.isVisible = false;
+            head.physicsImpostor = new PhysicsImpostor(head, PhysicsImpostor.BoxImpostor, {mass:1}, this.scene);
 
             meshes[0].parent = root;
             root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-            root.position = new Vector3(0,0,0);
+            root.position = new Vector3(2,2,1);
 
 
 
@@ -237,50 +274,353 @@ class Game
             //meshes[0].setPivotMatrix(Matrix.Translation(-.6,0,-.8));
 
             //meshes[0].position = new Vector3(0,2,2);
-            //meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.SphereImpostor, {mass: 1,restitution:.9}, this.scene);
+            meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1,restitution:.9}, this.scene);
 
-        });
+            root.isVisible = false;
+            root.isPickable = false;
+
+            //head.physicsImpostor.registerOnPhysicsCollide(this.ballsImposters, this.clubToBall);
+            meshes[0].physicsImpostor.sleep();
+
+            meshes[0].checkCollisions = true;
+
+            this.clubs.push(<Mesh>meshes[0]);
+            this.clubsimposters.push(head);
+
+
+        });*/
+
+        /*
         SceneLoader.ImportMesh("", "assets/models/", "iron.obj", this.scene, (meshes) => {
             meshes[0].name = "iron";
             meshes[0].scaling = new Vector3(-.001, .001, .001);
             //meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
             meshes[0].position = new Vector3(-.5,-.4,.0);
-            var root = new TransformNode("iron-root", this.scene);
+            var root = MeshBuilder.CreateSphere("iron-root", {diameter:.5, segments : 5} ,this.scene);
             root.position = new Vector3(0,0,0);
+
+            var head = MeshBuilder.CreateBox("iron head", {size:.15}, this.scene)
+
+            head.parent = root;
+            head.position = new Vector3(.62,-.942,-.058);
+            head.rotate(new Vector3(1,0,0), 54*Math.PI/180);
+            head.isPickable = false;
+            head.isVisible = false;
+            head.physicsImpostor = new PhysicsImpostor(head, PhysicsImpostor.BoxImpostor, {mass:1}, this.scene);
 
             meshes[0].parent = root;
             root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-            root.position = new Vector3(0,0,0);
-            //meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+            root.position = new Vector3(1,4,6);
 
+            meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+            meshes[0].physicsImpostor.sleep();
+
+            root.isVisible = false;
+            root.isPickable = false;
+
+            meshes[0].checkCollisions = true;
+
+
+            this.clubs.push(<Mesh>meshes[0]);
+            this.clubsimposters.push(head);
 
         });
+        */
+
+        /*
         SceneLoader.ImportMesh("", "assets/models/", "putter.obj", this.scene, (meshes) => {
             meshes[0].name = "putter";
             meshes[0].scaling = new Vector3(-.001, .001, .001);
             ///meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
             meshes[0].position = new Vector3(-1.34,-.4,.0);
-            var root = new TransformNode("putter-root", this.scene);
+            var root = MeshBuilder.CreateSphere("putter-root", {diameter:.5, segments : 5} ,this.scene);
             root.position = new Vector3(0,0,0);
+
+            var head = MeshBuilder.CreateBox("putter head", {size:.15}, this.scene)
+
+            head.parent = root;
+            head.position = new Vector3(.4,-.912,-.058);
+            head.isPickable = false;
+            head.isVisible = false;
+            head.physicsImpostor = new PhysicsImpostor(head, PhysicsImpostor.BoxImpostor, {mass:1}, this.scene);
 
             meshes[0].parent = root;
             root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-            root.position = new Vector3(0,0,0);
-            //meshes[0].physicsImpostor = new PhysicsImpostor(meshes[0], PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+            root.position = new Vector3(1,2,0);
+            meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+            //meshes[0].physicsImpostor.physicsBody.shapes.radius = 3;
+            root.isVisible = false;
+            root.isPickable = false;
 
+            meshes[0].physicsImpostor.sleep();
+            this.clubs.push(<Mesh>meshes[0]);
+            this.clubsimposters.push(head);
+
+        });
+        */
+
+
+        //golfbag ripped from https://free3d.com/3d-model/golf-bag-v01--653547.html
+        SceneLoader.ImportMesh("", "assets/models/", "10506_golf_bag_v01_L3.obj", this.scene, (meshes) => {
+            meshes[0].name = "golfbag";
+            meshes[0].scaling = new Vector3(-.01, .01, .01);
+            meshes[0].rotation = new Vector3(90*Math.PI/180, 0,0);
+            meshes[0].position = new Vector3(-0,0.5,0);
+            var root = MeshBuilder.CreateBox("golfbag-root", {size:1} ,this.scene);
+            root.position = new Vector3(-0,0,0);
+
+            meshes[0].parent = root;
+            //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+            root.position = new Vector3(-1,2,0);
+            meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+            root.isVisible = false;
+            root.isPickable = false;
+
+            meshes[0].physicsImpostor?.sleep();
+            this.bags.push(<Mesh>meshes[0]);
+            //.clubsimposters.push(head);
+
+            //add 4 buttons and push them onto the buttons array
+            var button1 = new Button3D('Golfball button');
+            var button2 = new Button3D("Driver button");
+            var button3 = new Button3D("Iron button");
+            var button4 = new Button3D("Putter button");
+
+            manager.addControl(button1);
+            manager.addControl(button2);
+            manager.addControl(button3);
+            manager.addControl(button4);
+            button1.linkToTransformNode(meshes[0]);
+            button2.linkToTransformNode(meshes[0]);
+            button3.linkToTransformNode(meshes[0]);
+            button4.linkToTransformNode(meshes[0]);
+            button1.position = new Vector3(-15, -35, 40);
+            button2.position = new Vector3(-15, 35, 15);
+            button3.position = new Vector3(-15, 35, 40);
+            button4.position = new Vector3(-15, 35, 65);
+
+            button1.mesh!.rotation = new Vector3(0,90*Math.PI/180, 270*Math.PI/180);
+            button2.mesh!.rotation = new Vector3(0,90*Math.PI/180, 270*Math.PI/180);
+            button3.mesh!.rotation = new Vector3(0,90*Math.PI/180, 270*Math.PI/180);
+            button4.mesh!.rotation = new Vector3(0,90*Math.PI/180, 270*Math.PI/180);
+
+            button1.scaling = new Vector3(-20,20,20);
+            button2.scaling = new Vector3(-20,20,20);
+            button3.scaling = new Vector3(-20,20,20);
+            button4.scaling = new Vector3(-20,20,20);
+
+            button1.onPointerUpObservable.add(()=>{
+                var ball = MeshBuilder.CreateSphere("ball", {segments:15, diameter:.2}, this.scene);
+                ball.position = new Vector3(0,0,0);
+                var root = MeshBuilder.CreateSphere("ball-root", {diameter: .2, segments:15} ,this.scene);
+                root.position = new Vector3(0,0,0);
+                root.isPickable = false;
+                root.isVisible = false;
+
+                ball.parent = root;
+                //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+                root.position = button1!.parent!.position!.add(new Vector3(0,1,0));
+                ball.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+
+
+                ball.checkCollisions = true;
+
+                //ball.physicsImpostor.sleep();
+
+                this.balls.push(ball);
+            });  
+            button2.onPointerUpObservable.add( () => {
+
+                SceneLoader.ImportMesh("", "assets/models/", "driver.obj", this.scene, (meshes) => {
+                meshes[0].name = "driver";
+                meshes[0].scaling = new Vector3(-.001, .001, .001);
+                //meshes[0].rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+                meshes[0].position = new Vector3(-.8,-.3,-.03);
+
+                var root = MeshBuilder.CreateSphere("driver-root", {diameter:.5, segments : 5} ,this.scene);
+                root.position = new Vector3(0,0,0);
+
+                var head = MeshBuilder.CreateBox("driver head", {size:.15}, this.scene)
+
+                head.parent = root;
+                head.position = new Vector3(.63,-.85,-.058);
+                head.isPickable = false;
+                head.isVisible = false;
+                head.physicsImpostor = new PhysicsImpostor(head, PhysicsImpostor.BoxImpostor, {mass:1}, this.scene);
+
+                meshes[0].parent = root;
+                root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+                root.position = button2!.parent!.position!.add(new Vector3(0,1,0));
+
+
+                //meshes[0].position = new Vector3(.659,-.57,.022);
+                //meshes[0].setPivotMatrix(Matrix.Translation(-.03,.6,.6));
+                //meshes[0].setPivotMatrix(Matrix.Translation(-.6,0,-.8));
+
+                //meshes[0].position = new Vector3(0,2,2);
+                meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1,restitution:.9}, this.scene);
+
+                root.isVisible = false;
+                root.isPickable = false;
+
+                //head.physicsImpostor.registerOnPhysicsCollide(this.ballsImposters, this.clubToBall);
+                //meshes[0].physicsImpostor.sleep();
+
+                meshes[0].checkCollisions = true;
+
+                this.clubs.push(<Mesh>meshes[0]);
+                this.clubsimposters.push(head);
+
+
+                });
+
+            });  
+
+            button3.on
+            button3.onPointerUpObservable.add(()=>{
+                SceneLoader.ImportMesh("", "assets/models/", "iron.obj", this.scene, (meshes) => {
+                    meshes[0].name = "iron";
+                    meshes[0].scaling = new Vector3(-.001, .001, .001);
+                    //meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+                    meshes[0].position = new Vector3(-.5,-.4,.0);
+                    var root = MeshBuilder.CreateSphere("iron-root", {diameter:.5, segments : 5} ,this.scene);
+                    root.position = new Vector3(0,0,0);
+
+                    var head = MeshBuilder.CreateBox("iron head", {size:.15}, this.scene)
+
+                    head.parent = root;
+                    head.position = new Vector3(.62,-.942,-.058);
+                    head.rotate(new Vector3(1,0,0), 54*Math.PI/180);
+                    head.isPickable = false;
+                    head.isVisible = false;
+                    head.physicsImpostor = new PhysicsImpostor(head, PhysicsImpostor.BoxImpostor, {mass:1}, this.scene);
+
+                    meshes[0].parent = root;
+                    root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+                    root.position = button3!.parent!.position!.add(new Vector3(0,1,0));
+
+                    meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+                    meshes[0].physicsImpostor.sleep();
+
+                    root.isVisible = false;
+                    root.isPickable = false;
+
+                    meshes[0].checkCollisions = true;
+
+
+                    this.clubs.push(<Mesh>meshes[0]);
+                    this.clubsimposters.push(head);
+
+                });
+            });  
+            button4.onPointerUpObservable.add(()=>{
+                SceneLoader.ImportMesh("", "assets/models/", "putter.obj", this.scene, (meshes) => {
+                    meshes[0].name = "putter";
+                    meshes[0].scaling = new Vector3(-.001, .001, .001);
+                    ///meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+                    meshes[0].position = new Vector3(-1.34,-.4,.0);
+                    var root = MeshBuilder.CreateSphere("putter-root", {diameter:.5, segments : 5} ,this.scene);
+                    root.position = new Vector3(0,0,0);
+
+                    var head = MeshBuilder.CreateBox("putter head", {size:.15}, this.scene)
+
+                    head.parent = root;
+                    head.position = new Vector3(.4,-.912,-.058);
+                    head.isPickable = false;
+                    head.isVisible = false;
+                    head.physicsImpostor = new PhysicsImpostor(head, PhysicsImpostor.BoxImpostor, {mass:1}, this.scene);
+
+                    meshes[0].parent = root;
+                    root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+                    root.position = button2!.parent!.position!.add(new Vector3(0,1,0));
+                    meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+                    //meshes[0].physicsImpostor.physicsBody.shapes.radius = 3;
+                    root.isVisible = false;
+                    root.isPickable = false;
+
+                    //meshes[0].physicsImpostor.sleep();
+                    this.clubs.push(<Mesh>meshes[0]);
+                    this.clubsimposters.push(head);
+
+                });
+            });  
+
+            var text1 = new TextBlock();
+            text1.text = 'Golfball';
+            text1.color = 'white';
+            text1.fontSize = 40;
+            button1.content = text1;
+
+            var text2 = new TextBlock();
+            text2.text = 'Driver';
+            text2.color = 'white';
+            text2.fontSize = 40;
+            button2.content = text2;  
+
+            var text3 = new TextBlock();
+            text3.text = 'Iron';
+            text3.color = 'white';
+            text3.fontSize = 40;
+            button3.content = text3;
+
+            var text4 = new TextBlock();
+            text4.text = 'Putter';
+            text4.color = 'white';
+            text4.fontSize = 40;
+            button4.content = text4;
+
+            
+        
+
+            // the items matching a golf bag and 1 after will always be these two buttons
+            // they wont be toggled until selected by the right hand
 
         });
  
+
+
+
+        /*
         var ball = MeshBuilder.CreateSphere("ball", {segments:15, diameter:.2}, this.scene);
         ball.position = new Vector3(0,0,0);
-        var root = new TransformNode("putter-root", this.scene);
+        var root = MeshBuilder.CreateSphere("ball-root", {diameter: .2, segments:15} ,this.scene);
         root.position = new Vector3(0,0,0);
+        root.isPickable = false;
+        root.isVisible = false;
 
         ball.parent = root;
         //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-        root.position = new Vector3(0,0,0);
-        //ball.physicsImpostor = new PhysicsImpostor(ball, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
-        
+        root.position = new Vector3(0,2,.2);
+        ball.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
+
+
+        ball.checkCollisions = true;
+
+        ball.physicsImpostor.sleep();
+
+        this.balls.push(ball);
+        */
+
+
+        /*ball.actionManager?.registerAction(
+            new SetValueAction(
+                {
+                    trigger: ActionManager.OnIntersectionEnterTrigger,
+                    parameter: othermesh
+                },
+                ball,
+                function () {
+                    console.log('hello');
+                }
+            )
+            
+        );*/
+
+
+
+ 
+
+
         var fairway = MeshBuilder.CreateGround("fairway", {width:20, height:50}, this.scene);
         fairway.position = new Vector3(0,0,5);
         //fairway.rotation = new Vector3(90*Math.PI/180, 0,0);
@@ -288,6 +628,12 @@ class Game
         fairway.physicsImpostor = new PhysicsImpostor(fairway, PhysicsImpostor.BoxImpostor, {mass:0 , restitution:.9}, this.scene);
 
 
+        //ball.physicsImpostor.applyImpulse(new Vector3(0,1,1), ball.getAbsolutePosition());
+
+
+        this.scene.getPhysicsEngine()!.setTimeStep(1/100);
+
+        
         
         
         this.scene.debugLayer.show(); 
@@ -319,16 +665,72 @@ class Game
             this.previousLeftControllerPosition = this.leftController.grip!.position.clone();
         }
 
+        // i guess that i have to do the collisions in update... i am sorry...
+
+        //console.log('is this even working');
+        var temp1 = 0;
+        var temp2 = 0;
+        for (var i = 0; i < this.clubs.length; i++){
+            for (var j = 0; j < this.balls.length; j++){
+                if(this.clubs[i].intersectsMesh(this.balls[j])){
+                    this.clubToBall(i, j);
+                }
+            }
+        }
+
+
+        //this.balls[0]!.physicsImpostor!.applyImpulse(new Vector3(0,1,1), this.balls[0]);
+
+
     }
 
     // Process event handlers for controller input
     private processControllerInput()
     {
         this.onRightTrigger(this.rightController?.motionController?.getComponent("xr-standard-trigger"));
-        this.onRightThumbstick(this.rightController?.motionController?.getComponent("xr-standard-thumbstick"));
-        this.onRightSqueeze(this.rightController?.motionController?.getComponent("xr-standard-squeeze"));
-        this.onLeftSqueeze(this.leftController?.motionController?.getComponent("xr-standard-squeeze"));
+        //this.onRightThumbstick(this.rightController?.motionController?.getComponent("xr-standard-thumbstick"));
+        //this.onRightSqueeze(this.rightController?.motionController?.getComponent("xr-standard-squeeze"));
+        //this.onLeftSqueeze(this.leftController?.motionController?.getComponent("xr-standard-squeeze"));
+        this.onLeftTrigger(this.leftController?.motionController?.getComponent("xr-standard-trigger"));
     }
+
+    private clubToBall(club: number, ball:number){
+        var temp = club;
+        var temp2 = ball;
+
+
+        /*if(this.clubsimposters.includes(club)){
+            for(var i = 0; i < this.clubsimposters.length; i++){
+                if (this.clubsimposters[i] == club){
+                    temp = i;
+                }
+            }
+        }
+        if(this.ballsImposters.includes(ball)){
+            for(var i = 0; i < this.ballsImposters.length; i++){
+                if (this.ballsImposters[i] == ball){
+                    temp2 = i;
+                }
+            }
+        }*/
+
+
+        if(this.clubs[temp].name.includes("driv")){
+            // do the medium height impulse
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,1,0)), this.balls[temp2].getAbsolutePosition());
+            //this.balls[temp2].physicsImpostor!.applyImpulse( new Vector3(0,3,3), this.balls[temp2].getAbsolutePosition());
+
+        }
+        else if(this.clubs[temp].name.includes("iron")){
+            // do the high height impulse
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,2,0)), this.balls[temp2].getAbsolutePosition());
+        }
+        else {
+            // do the low height impulse
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,.5,0)), this.balls[temp2].getAbsolutePosition());
+        }
+    }
+
 
     private onRightTrigger(component?: WebXRControllerComponent)
     {  
@@ -354,10 +756,23 @@ class Game
                 if(pickInfo?.hit)
                 {
                     this.selectedObject = pickInfo!.pickedMesh;
-                    this.selectedRoot = <TransformNode>pickInfo!.pickedMesh?.parent;
+                    this.selectedRoot = <Mesh>pickInfo!.pickedMesh!.parent;
                     this.selectedObject!.enableEdgesRendering();
                     //this.selectedRoot!.position = this.rightController!.pointer!.position;
+
+                    // we gotta kill the objects overall physics so that we can move?
+                    this.selectedObject!.physicsImpostor?.sleep();
+
                     this.selectedRoot!.position = new Vector3(0,0,0);
+
+                    if(this.clubs.includes(<Mesh>this.selectedObject!)){
+                        /*
+                        this.selectedRoot!.rotate(new Vector3(1,0,0), -this.selectedRoot!.rotation.x + 183 *Math.PI/180, Space.LOCAL);
+                        this.selectedRoot!.rotate(new Vector3(0,1,0), -this.selectedRoot!.rotation.y +91 *Math.PI/180, Space.LOCAL);
+                        this.selectedRoot!.rotate(new Vector3(0,0,1), -this.selectedRoot!.rotation.z +217 *Math.PI/180, Space.LOCAL);
+                        */
+                         this.selectedRoot!.rotationQuaternion = new Vector3(183*Math.PI/180, 91* Math.PI/180, 217 * Math.PI/180).toQuaternion();
+                    }
                     this.selectedRoot!.parent = this.rightController!.grip!;
 
                     // Parent the object to the transform on the laser pointer
@@ -373,6 +788,64 @@ class Game
                 if(this.selectedObject)
                 {
                     this.selectedRoot!.setParent(null);
+                    this.selectedObject!.physicsImpostor?.wakeUp();
+                }  
+            }
+        }
+    }
+
+    private onLeftTrigger(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                this.laserPointer!.color = Color3.Green();
+
+                var ray = new Ray(this.leftController!.pointer.position, this.leftController!.pointer.forward, 10);
+                var pickInfo = this.scene.pickWithRay(ray);
+
+                // Deselect the currently selected object 
+                if(this.selectedObject)
+                {
+                    this.selectedObject.disableEdgesRendering();
+                    this.selectedObject = null;
+                    this.selectedRoot = null;
+                }
+
+                // If an object was hit, select it
+                if(pickInfo?.hit)
+                {
+                    this.selectedObject = pickInfo!.pickedMesh;
+                    this.selectedRoot = <Mesh>pickInfo!.pickedMesh!.parent;
+                    this.selectedObject!.enableEdgesRendering();
+                    //this.selectedRoot!.position = this.rightController!.pointer!.position;
+
+                    // we gotta kill the objects overall physics so that we can move?
+                    this.selectedObject!.physicsImpostor?.sleep();
+
+                    this.selectedRoot!.position = new Vector3(0,0,0);
+
+                    if(this.bags.includes(<Mesh>this.selectedObject!)){
+                        this.selectedRoot!.rotationQuaternion = new Vector3(0, 0,0).toQuaternion();
+                    }
+                    this.selectedRoot!.parent = this.leftController!.grip!;
+
+                    // Parent the object to the transform on the laser pointer
+                    //this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
+                    //this.selectedRoot!.setParent(this.selectionTransform!);
+                }
+            }
+            else
+            {
+                // Reset the laser pointer color
+                this.laserPointer!.color = Color3.Blue();
+
+                // Release the object from the laser pointer
+                if(this.selectedObject)
+                {
+                    this.selectedRoot!.setParent(null);
+                    this.selectedObject!.physicsImpostor?.wakeUp();
                 }  
             }
         }
