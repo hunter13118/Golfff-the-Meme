@@ -15,6 +15,8 @@ import { Ray } from "@babylonjs/core/Culling/ray";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
+import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight"
 
 
 import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader"
@@ -50,7 +52,7 @@ import "@babylonjs/core/Materials/standardMaterial"
 import "@babylonjs/loaders/OBJ/objFileLoader"
 import "@babylonjs/loaders/glTF/2.0/glTFLoader"
 import { ActionManager } from "@babylonjs/core/Actions/actionManager";
-import { GroundBuilder, SetValueAction } from "@babylonjs/core";
+import { GroundBuilder, SetValueAction, Texture } from "@babylonjs/core";
 
 class Game 
 { 
@@ -85,6 +87,9 @@ class Game
 
     private count : number;
     private carts : Array<Mesh>;
+
+    private inDrive: boolean;
+    private inPass: boolean;
     
     constructor()
     {
@@ -124,6 +129,9 @@ class Game
 
         this.count = 0;
 
+        this.inDrive = false;
+        this.inPass = false;
+
     }
 
     start() : void 
@@ -160,19 +168,35 @@ class Game
        pointLight.intensity = 1.0;
        pointLight.diffuse = new Color3(.25, .25, .25);
 
+       var ambientlight = new HemisphericLight("ambient", Vector3.Up(), this.scene);
+        ambientlight.intensity = 1.0;
+        ambientlight.diffuse = new Color3(.25, .25, .25);
+        // Add a directional light to imitate sunlight
+        var directionalLight = new DirectionalLight("sunlight", Vector3.Down(), this.scene);
+        directionalLight.intensity = 1.0;
+
         // Creates a default skybox
         const environment = this.scene.createDefaultEnvironment({
-            createGround: true,
-            groundSize: 200
+            createGround: false,
+            //groundSize: 200
         });
 
+        this.scene.enablePhysics(new Vector3(0, -9.81, .0), new CannonJSPlugin(undefined, undefined, cannon));
+
+
         // Make sure the environment and skybox is not pickable!
-        environment!.ground!.isPickable = false;
-        environment!.ground!.position.y = -1;
+        //environment!.ground!.isPickable = false;
+        //environment!.ground!.position.y = -1;
         environment!.skybox!.isPickable = false;
 
         // Creates the XR experience helper
-        const xrHelper = await this.scene.createDefaultXRExperienceAsync({});
+        const xrHelper = await this.scene.createDefaultXRExperienceAsync({
+            //floorMeshes: [fairway]
+        });
+
+
+        xrHelper.teleportation.setSelectionFeature(xrHelper.baseExperience.featuresManager.getEnabledFeature("xr-background-remover"));
+
 
         // Assigns the web XR camera to a member variable
         this.xrCamera = xrHelper.baseExperience.camera;
@@ -237,8 +261,6 @@ class Game
             }
         });
 
-        // Enable physics engine with no gravity
-        this.scene.enablePhysics(new Vector3(0, -9.81, .0), new CannonJSPlugin(undefined, undefined, cannon));
 
 
         this.scene.collisionsEnabled = true;
@@ -419,6 +441,11 @@ class Game
                 root.isPickable = false;
                 root.isVisible = false;
 
+                var balltex = new Texture("assets/textures/golfball.png", this.scene);
+                var ballmat = new StandardMaterial("ballMaterial", this.scene);
+                ballmat.diffuseTexture = balltex;
+                ball.material = ballmat;
+
                 ball.parent = root;
                 //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
                 root.position = button1!.parent!.position!.add(new Vector3(0,1,0));
@@ -453,6 +480,11 @@ class Game
                 meshes[0].parent = root;
                 root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
                 root.position = button2!.parent!.position!.add(new Vector3(0,1,0));
+
+                var clubtex = new Texture("assets/textures/club.png", this.scene);
+                var clubmat = new StandardMaterial("clubMaterial", this.scene);
+                clubmat.diffuseTexture = clubtex;
+                meshes[0].material = clubmat;
 
 
                 //meshes[0].position = new Vector3(.659,-.57,.022);
@@ -500,6 +532,11 @@ class Game
                     root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
                     root.position = button3!.parent!.position!.add(new Vector3(0,1,0));
 
+                    var clubtex = new Texture("assets/textures/club.png", this.scene);
+                    var clubmat = new StandardMaterial("clubMaterial", this.scene);
+                    clubmat.diffuseTexture = clubtex;
+                    meshes[0].material = clubmat;
+
                     meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
                     meshes[0].physicsImpostor.sleep();
 
@@ -534,6 +571,12 @@ class Game
                     meshes[0].parent = root;
                     root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
                     root.position = button2!.parent!.position!.add(new Vector3(0,1,0));
+
+                    var clubtex = new Texture("assets/textures/club.png", this.scene);
+                    var clubmat = new StandardMaterial("clubMaterial", this.scene);
+                    clubmat.diffuseTexture = clubtex;
+                    meshes[0].material = clubmat;
+
                     meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
                     //meshes[0].physicsImpostor.physicsBody.shapes.radius = 3;
                     root.isVisible = false;
@@ -593,6 +636,7 @@ class Game
         var root = MeshBuilder.CreateBox("golfcart-root", {depth: 4, width:2, height: 2.75} ,this.scene);
         root.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.BoxImpostor, {mass: 1}, this.scene);
         root.position = new Vector3(0,1.40);
+        root.isPickable = false;
             
             for (var i = 0; i < meshes.length; i++){
                 meshes[i].name = "golfcart";
@@ -600,6 +644,7 @@ class Game
                 meshes[i].physicsImpostor?.dispose();
                 ///meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
                 meshes[i].setParent(root);
+                meshes[i].isPickable = false;
             }
 
 
@@ -611,6 +656,87 @@ class Game
             root.position = new Vector3(0,5,5);
             root.isVisible = false;
             root.isPickable = false;
+
+            var button1 = new Button3D('leftBag');
+            var button2 = new Button3D("rightBag");
+            var button3 = new Button3D("Driver");
+            var button4 = new Button3D("Passenger");
+
+            manager.addControl(button1);
+            manager.addControl(button2);
+            manager.addControl(button3);
+            manager.addControl(button4);
+            button1.linkToTransformNode(root);
+            button2.linkToTransformNode(root);
+            button3.linkToTransformNode(root);
+            button4.linkToTransformNode(root);
+
+            button1.position = new Vector3(-.5, -.45, -1.5);
+            button2.position = new Vector3(.5, -.45, -1.5);
+            button3.position = new Vector3(.49, -.15, -.94);
+            button4.position = new Vector3(-.44, -.15, -.94);
+
+            button1.mesh!.rotation = new Vector3(90*Math.PI/180,0,0);
+            button2.mesh!.rotation = new Vector3(90*Math.PI/180,0,0);
+            button3.mesh!.rotation = new Vector3(90*Math.PI/180,0,0);
+            button4.mesh!.rotation = new Vector3(90*Math.PI/180,0,0);
+
+            button1.scaling = new Vector3(.5,.5,.5);
+            button2.scaling = new Vector3(.5,.5,.5);
+            button3.scaling = new Vector3(.5,.5,.5);
+            button4.scaling = new Vector3(.5,.5,.5);
+
+
+            button1.onPointerUpObservable.add(()=>{
+                console.log('Put it in the Left');
+                this.bags[0].parent = this.carts[0];
+                this.bags[0].position = this.carts[0].position.add(new Vector3(-.4, -.75,-6.75));
+                this.bags[0].rotation.y = 90 * Math.PI/180;
+            }); 
+            button2.onPointerUpObservable.add(()=>{
+                console.log('Put it in the Right');
+                this.bags[0].position = this.carts[0].position.add(new Vector3(.5, -.75,-6.75));
+                this.bags[0].rotation.y = 90 * Math.PI/180;
+            }); 
+            button3.onPointerUpObservable.add(()=>{
+                console.log('let me drive');
+                this.inDrive = !this.inDrive;
+                this.inPass = false;
+            }); 
+            button4.onPointerUpObservable.add(()=>{
+                console.log('Im lazy');
+                this.inPass = !this.inPass;
+                this.inDrive = false;
+            }); 
+
+            var text1 = new TextBlock();
+            text1.text = 'Left GolfBag';
+            text1.color = 'black';
+            text1.fontSize = 40;
+            button1.content = text1;
+
+            var text2 = new TextBlock();
+            text2.text = 'Right GolfBag';
+            text2.color = 'black';
+            text2.fontSize = 40;
+            button2.content = text2;  
+
+            var text3 = new TextBlock();
+            text3.text = 'Driver';
+            text3.color = 'black';
+            text3.fontSize = 40;
+            button3.content = text3;
+
+            var text4 = new TextBlock();
+            text4.text = 'Passenger';
+            text4.color = 'black';
+            text4.fontSize = 40;
+            button4.content = text4;
+
+            this.buttons.push(button1);
+            this.buttons.push(button2);
+            this.buttons.push(button3);
+            this.buttons.push(button4);
 
             this.carts.push(root);
 
@@ -655,18 +781,21 @@ class Game
         );*/
 
 
-
- 
+        //ball.physicsImpostor.applyImpulse(new Vector3(0,1,1), ball.getAbsolutePosition());
 
 
         var fairway = MeshBuilder.CreateGround("fairway", {width:20, height:50}, this.scene);
         fairway.position = new Vector3(0,0,5);
         //fairway.rotation = new Vector3(90*Math.PI/180, 0,0);
         fairway.isPickable = false;
+
+        var grasstex = new Texture("assets/textures/grass.png", this.scene);
+        var grassmat = new StandardMaterial("grassMaterial", this.scene);
+        grassmat.diffuseTexture = grasstex;
+        fairway.material = grassmat;
+
         fairway.physicsImpostor = new PhysicsImpostor(fairway, PhysicsImpostor.BoxImpostor, {mass:0 , restitution:.9}, this.scene);
-
-
-        //ball.physicsImpostor.applyImpulse(new Vector3(0,1,1), ball.getAbsolutePosition());
+        xrHelper.teleportation.addFloorMesh(fairway);
 
 
         this.scene.getPhysicsEngine()!.setTimeStep(1/100);
@@ -685,12 +814,21 @@ class Game
             this.count++;
             //this.carts[0].physicsImpostor?.sleep();
         }
-        if (this.count == 24){
+        if (this.count == 24 || this.carts[0].position.y > 5){
             this.carts[0].physicsImpostor?.setLinearVelocity(new Vector3(0,0,0));
             this.carts[0].physicsImpostor?.setAngularVelocity(new Vector3(0,0,0));
 
+            this.carts[0].position.y = 3;
+
+
             //this.carts[0].position = new Vector3(0,0,5);
             this.carts[0].rotation = new Vector3(0,0,0);
+        }
+        if(this.inDrive){
+            this.xrCamera!.position = this.carts[0].position.add(new Vector3(.5,1,0));
+        }
+        if(this.inPass){
+            this.xrCamera!.position = this.carts[0].position.add(new Vector3(-.5, 1, 0));
         }
         if(this.leftController && this.rightController)
         {
@@ -914,77 +1052,8 @@ class Game
         }
     }
 
-    private onRightThumbstick(component?: WebXRControllerComponent)
-    {
-        // If we have an object that is currently attached to the laser pointer
-        if(component?.changes.axes && this.selectedObject && this.selectedObject.parent)
-        {
-            // Use delta time to calculate the proper speed
-            var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
+    
 
-            // Translate the object along the depth ray in world space
-            this.selectedObject.translate(this.laserPointer!.forward, moveDistance, Space.WORLD);
-        }
-    }
-
-    private onRightSqueeze(component?: WebXRControllerComponent)
-    {
-        if(this.selectedObject && this.leftController)
-        {
-            if(component?.changes.pressed)
-            {
-                // Button down
-                if(component?.pressed)
-                {
-                    this.bimanualLine!.visibility = 1;
-                    this.miniatureObject = new InstancedMesh('miniatureObject', <Mesh>this.selectedObject);
-                }
-                // Button release
-                else
-                {
-                    this.bimanualLine!.visibility = 0;
-                    this.miniatureObject?.dispose();
-                }
-            }
-
-            if(component?.pressed)
-            {
-                // Position manipulation
-                var midpoint = this.rightController!.grip!.position.add(this.leftController.grip!.position).scale(.5);
-                var previousMidpoint = this.previousRightControllerPosition.add(this.previousLeftControllerPosition).scale(.5);
-                var positionChange = midpoint.subtract(previousMidpoint);
-                this.selectedObject.translate(positionChange!.normalizeToNew(), positionChange.length(), Space.WORLD);
-
-                // Rotation manipulation
-                var bimanualVector = this.rightController!.grip!.position.subtract(this.leftController!.grip!.position).normalize();
-                var previousBimanualVector = this.previousRightControllerPosition.subtract(this.previousLeftControllerPosition).normalize();
-
-                // Some linear algebra to calculate the angle and axis of rotation
-                var angle = Math.acos(Vector3.Dot(previousBimanualVector, bimanualVector));
-                var axis = Vector3.Cross(previousBimanualVector, bimanualVector).normalize();
-                this.selectedObject.rotate(axis, angle, Space.WORLD);
-
-                // Update the position, orientation, and scale of the miniature object
-                this.miniatureObject!.position = midpoint;
-                this.miniatureObject!.rotationQuaternion = this.selectedObject.absoluteRotationQuaternion;
-                this.miniatureObject!.scaling = this.selectedObject.scaling.scale(.1);
-            }
-        }
-    }
-
-    private onLeftSqueeze(component?: WebXRControllerComponent)
-    {
-        // Only add scale manipulation if the right squeeze button is already being pressed
-        if(component?.pressed && this.selectedObject &&
-            this.rightController?.motionController?.getComponent("xr-standard-squeeze").pressed)
-        {
-            // Scale manipulation
-            var bimanualVector = this.rightController!.grip!.position.subtract(this.leftController!.grip!.position);
-            var previousBimanualVector = this.previousRightControllerPosition.subtract(this.previousLeftControllerPosition);
-            var scaleFactor = bimanualVector.length() / previousBimanualVector.length();
-            this.selectedObject.scaling = this.selectedObject.scaling.scale(scaleFactor);
-        }
-    }
 
     private processPointer(pointerInfo: PointerInfo)
     {
