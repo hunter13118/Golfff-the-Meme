@@ -46,17 +46,11 @@ import "@babylonjs/core/Physics/physicsEngineComponent";
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
-<<<<<<< HEAD
-import "@babylonjs/core/Materials/standardMaterial";
-import "@babylonjs/loaders/OBJ/objFileLoader";
-import "@babylonjs/loaders/glTF/2.0/glTFLoader";
-=======
 import "@babylonjs/core/Materials/standardMaterial"
 import "@babylonjs/loaders/OBJ/objFileLoader"
 import "@babylonjs/loaders/glTF/2.0/glTFLoader"
 import { ActionManager } from "@babylonjs/core/Actions/actionManager";
 import { GroundBuilder, SetValueAction } from "@babylonjs/core";
->>>>>>> The-Game-Itself
 
 class Game 
 { 
@@ -82,11 +76,15 @@ class Game
     private balls: Array<Mesh>;
     private ballsImposters: Array<PhysicsImpostor>
     private bags: Array<Mesh>;
+    private buttons: Array<Button3D>;
 
     private pickInfo: PickingInfo | null;
 
     private previousLeftControllerPosition: Vector3;
     private previousRightControllerPosition: Vector3;
+
+    private count : number;
+    private carts : Array<Mesh>;
     
     constructor()
     {
@@ -116,11 +114,15 @@ class Game
         this.balls = [];
         this.ballsImposters = [];
         this.bags = [];
+        this.buttons = [];
+        this.carts = [];
 
         this.pickInfo = null;
 
         this.previousLeftControllerPosition = Vector3.Zero();
         this.previousRightControllerPosition = Vector3.Zero();
+
+        this.count = 0;
 
     }
 
@@ -161,7 +163,7 @@ class Game
         // Creates a default skybox
         const environment = this.scene.createDefaultEnvironment({
             createGround: true,
-            groundSize: 50
+            groundSize: 200
         });
 
         // Make sure the environment and skybox is not pickable!
@@ -176,7 +178,7 @@ class Game
         this.xrCamera = xrHelper.baseExperience.camera;
 
         // Remove default teleportation and pointer selection
-        xrHelper.teleportation.dispose();
+        //xrHelper.teleportation.dispose();
         //xrHelper.pointerSelection.dispose();
 
         this.scene.onPointerObservable.add((pointerInfo) => {
@@ -195,7 +197,7 @@ class Game
         this.laserPointer.visibility = 0;
         this.laserPointer.isPickable = false;
 
-        // Create points for the bimanual line
+        // Create points for the bimanual line   
         var bimanualPoints = [];
         bimanualPoints.push(new Vector3(0, 0, 0));
         bimanualPoints.push(new Vector3(0, 0, 1));
@@ -476,7 +478,6 @@ class Game
 
             });  
 
-            button3.on
             button3.onPointerUpObservable.add(()=>{
                 SceneLoader.ImportMesh("", "assets/models/", "iron.obj", this.scene, (meshes) => {
                     meshes[0].name = "iron";
@@ -569,6 +570,12 @@ class Game
             text4.fontSize = 40;
             button4.content = text4;
 
+            this.buttons.push(button1);
+            this.buttons.push(button2);
+            this.buttons.push(button3);
+            this.buttons.push(button4);
+
+
             
         
 
@@ -576,7 +583,38 @@ class Game
             // they wont be toggled until selected by the right hand
 
         });
- 
+
+
+        // now we shall make the golf cart......
+        // golf cart ripped from https://www.cgtrader.com/free-3d-models/vehicle/other/golf-cart--4
+
+        
+        SceneLoader.ImportMesh("", "assets/models/", "golfcart.obj", this.scene, (meshes) => {
+        var root = MeshBuilder.CreateBox("golfcart-root", {depth: 4, width:2, height: 2.75} ,this.scene);
+        root.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.BoxImpostor, {mass: 1}, this.scene);
+        root.position = new Vector3(0,1.40);
+            
+            for (var i = 0; i < meshes.length; i++){
+                meshes[i].name = "golfcart";
+                meshes[i].scaling = new Vector3(.05, .05, .05);
+                meshes[i].physicsImpostor?.dispose();
+                ///meshes[0].rotation = new Vector3(0, Math.PI, 13.6 * Math.PI/180);
+                meshes[i].setParent(root);
+            }
+
+
+            //root.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.BoxImpostor, {mass: 1}, this.scene);
+            //meshes[0].physicsImpostor.physicsBody.shapes.radius = 3;
+            //meshes[0].physicsImpostor.sleep();
+
+            //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
+            root.position = new Vector3(0,5,5);
+            root.isVisible = false;
+            root.isPickable = false;
+
+            this.carts.push(root);
+
+        });
 
 
 
@@ -642,6 +680,18 @@ class Game
     // The main update loop will be executed once per frame before the scene is rendered
     private update() : void
     {
+
+        if (this.count < 25){
+            this.count++;
+            //this.carts[0].physicsImpostor?.sleep();
+        }
+        if (this.count == 24){
+            this.carts[0].physicsImpostor?.setLinearVelocity(new Vector3(0,0,0));
+            this.carts[0].physicsImpostor?.setAngularVelocity(new Vector3(0,0,0));
+
+            //this.carts[0].position = new Vector3(0,0,5);
+            this.carts[0].rotation = new Vector3(0,0,0);
+        }
         if(this.leftController && this.rightController)
         {
             // Update bimanual line position and rotation
@@ -747,7 +797,7 @@ class Game
                 // Deselect the currently selected object 
                 if(this.selectedObject)
                 {
-                    this.selectedObject.disableEdgesRendering();
+                    this.selectedObject.disableEdgesRendering(); 
                     this.selectedObject = null;
                     this.selectedRoot = null;
                 }
@@ -759,31 +809,40 @@ class Game
                     this.selectedRoot = <Mesh>pickInfo!.pickedMesh!.parent;
                     this.selectedObject!.enableEdgesRendering();
                     //this.selectedRoot!.position = this.rightController!.pointer!.position;
+                    if (this.bags.includes(<Mesh>this.selectedObject!)){
+                        this.buttons[0].mesh?.setEnabled(true);
+                        this.buttons[1].mesh?.setEnabled(true);
+                        this.buttons[2].mesh?.setEnabled(true);
+                        this.buttons[3].mesh?.setEnabled(true);
 
-                    // we gotta kill the objects overall physics so that we can move?
-                    this.selectedObject!.physicsImpostor?.sleep();
-
-                    this.selectedRoot!.position = new Vector3(0,0,0);
-
-                    if(this.clubs.includes(<Mesh>this.selectedObject!)){
-                        /*
-                        this.selectedRoot!.rotate(new Vector3(1,0,0), -this.selectedRoot!.rotation.x + 183 *Math.PI/180, Space.LOCAL);
-                        this.selectedRoot!.rotate(new Vector3(0,1,0), -this.selectedRoot!.rotation.y +91 *Math.PI/180, Space.LOCAL);
-                        this.selectedRoot!.rotate(new Vector3(0,0,1), -this.selectedRoot!.rotation.z +217 *Math.PI/180, Space.LOCAL);
-                        */
-                         this.selectedRoot!.rotationQuaternion = new Vector3(183*Math.PI/180, 91* Math.PI/180, 217 * Math.PI/180).toQuaternion();
                     }
-                    this.selectedRoot!.parent = this.rightController!.grip!;
+                    // we gotta kill the objects overall physics so that we can move?
+                    else
+                    {
+                        this.selectedObject!.physicsImpostor?.sleep();
 
-                    // Parent the object to the transform on the laser pointer
-                    //this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
-                    //this.selectedRoot!.setParent(this.selectionTransform!);
+                        this.selectedRoot!.position = new Vector3(0,0,0);
+
+                        if(this.clubs.includes(<Mesh>this.selectedObject!)){
+                            /*
+                            this.selectedRoot!.rotate(new Vector3(1,0,0), -this.selectedRoot!.rotation.x + 183 *Math.PI/180, Space.LOCAL);
+                            this.selectedRoot!.rotate(new Vector3(0,1,0), -this.selectedRoot!.rotation.y +91 *Math.PI/180, Space.LOCAL);
+                            this.selectedRoot!.rotate(new Vector3(0,0,1), -this.selectedRoot!.rotation.z +217 *Math.PI/180, Space.LOCAL);
+                            */
+                            this.selectedRoot!.rotationQuaternion = new Vector3(183*Math.PI/180, 91* Math.PI/180, 217 * Math.PI/180).toQuaternion();
+                        }
+                        this.selectedRoot!.parent = this.rightController!.grip!;
+
+                        // Parent the object to the transform on the laser pointer
+                        //this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
+                        //this.selectedRoot!.setParent(this.selectionTransform!);
+                        }
                 }
             }
             else
             {
                 // Reset the laser pointer color
-
+                this.pickInfo = null;
                 // Release the object from the laser pointer
                 if(this.selectedObject)
                 {
@@ -800,10 +859,7 @@ class Game
         {
             if(component?.pressed)
             {
-                this.laserPointer!.color = Color3.Green();
-
-                var ray = new Ray(this.leftController!.pointer.position, this.leftController!.pointer.forward, 10);
-                var pickInfo = this.scene.pickWithRay(ray);
+               var pickInfo = this.pickInfo;
 
                 // Deselect the currently selected object 
                 if(this.selectedObject)
@@ -820,6 +876,14 @@ class Game
                     this.selectedRoot = <Mesh>pickInfo!.pickedMesh!.parent;
                     this.selectedObject!.enableEdgesRendering();
                     //this.selectedRoot!.position = this.rightController!.pointer!.position;
+
+                    if(this.bags.includes(<Mesh>this.selectedObject)){
+                        this.buttons[0].mesh?.setEnabled(false);
+                        this.buttons[1].mesh?.setEnabled(false);
+                        this.buttons[2].mesh?.setEnabled(false);
+                        this.buttons[3].mesh?.setEnabled(false);
+
+                    }
 
                     // we gotta kill the objects overall physics so that we can move?
                     this.selectedObject!.physicsImpostor?.sleep();
@@ -839,8 +903,7 @@ class Game
             else
             {
                 // Reset the laser pointer color
-                this.laserPointer!.color = Color3.Blue();
-
+                this.pickInfo = null;
                 // Release the object from the laser pointer
                 if(this.selectedObject)
                 {
