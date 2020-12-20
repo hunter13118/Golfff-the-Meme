@@ -19,6 +19,10 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 
 import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader"
 
+import { PointerEventTypes, PointerInfo } from "@babylonjs/core/Events/pointerEvents";
+
+import { PickingInfo } from "@babylonjs/core/Collisions";
+
 
 
 // Physics
@@ -30,9 +34,9 @@ import "@babylonjs/core/Physics/physicsEngineComponent";
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/inspector";
-import "@babylonjs/core/Materials/standardMaterial"
-import "@babylonjs/loaders/OBJ/objFileLoader"
-import "@babylonjs/loaders/glTF/2.0/glTFLoader"
+import "@babylonjs/core/Materials/standardMaterial";
+import "@babylonjs/loaders/OBJ/objFileLoader";
+import "@babylonjs/loaders/glTF/2.0/glTFLoader";
 
 class Game 
 { 
@@ -54,6 +58,8 @@ class Game
     private miniatureObject: InstancedMesh | null;
 
     private balls: Mesh [];
+
+    private pickInfo: PickingInfo | null;
 
     private previousLeftControllerPosition: Vector3;
     private previousRightControllerPosition: Vector3;
@@ -82,6 +88,8 @@ class Game
         this.miniatureObject = null;
 
         this.balls = [];
+
+        this.pickInfo = null;
 
         this.previousLeftControllerPosition = Vector3.Zero();
         this.previousRightControllerPosition = Vector3.Zero();
@@ -141,7 +149,11 @@ class Game
 
         // Remove default teleportation and pointer selection
         xrHelper.teleportation.dispose();
-        xrHelper.pointerSelection.dispose();
+        //xrHelper.pointerSelection.dispose();
+
+        this.scene.onPointerObservable.add((pointerInfo) => {
+            this.processPointer(pointerInfo);
+        });
 
         // Create points for the laser pointer
         var laserPoints = [];
@@ -324,10 +336,11 @@ class Game
         {
             if(component?.pressed)
             {
-                this.laserPointer!.color = Color3.Green();
 
-                var ray = new Ray(this.rightController!.pointer.position, this.rightController!.pointer.forward, 10);
-                var pickInfo = this.scene.pickWithRay(ray);
+                var pickInfo = this.pickInfo;
+                
+
+                
 
                 // Deselect the currently selected object 
                 if(this.selectedObject)
@@ -355,7 +368,6 @@ class Game
             else
             {
                 // Reset the laser pointer color
-                this.laserPointer!.color = Color3.Blue();
 
                 // Release the object from the laser pointer
                 if(this.selectedObject)
@@ -435,6 +447,18 @@ class Game
             var previousBimanualVector = this.previousRightControllerPosition.subtract(this.previousLeftControllerPosition);
             var scaleFactor = bimanualVector.length() / previousBimanualVector.length();
             this.selectedObject.scaling = this.selectedObject.scaling.scale(scaleFactor);
+        }
+    }
+
+    private processPointer(pointerInfo: PointerInfo)
+    {
+        switch (pointerInfo.type) {
+            case PointerEventTypes.POINTERDOWN:
+                if (pointerInfo.pickInfo?.hit) {
+                    //console.log(pointerInfo.pickInfo.pickedMesh?.name + " " + pointerInfo.pickInfo.pickedPoint);
+                    this.pickInfo =  pointerInfo.pickInfo;
+                }
+                break;
         }
     }
 
