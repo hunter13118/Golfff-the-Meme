@@ -12,6 +12,7 @@ import {MeshBuilder} from  "@babylonjs/core/Meshes/meshBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { LinesMesh } from "@babylonjs/core/Meshes/linesMesh";
 import { Ray } from "@babylonjs/core/Culling/ray";
+import { Axis } from "@babylonjs/core/Maths/math.axis";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
@@ -161,7 +162,8 @@ class Game
         var camera = new UniversalCamera("camera1", new Vector3(0, 1.6, 0), this.scene);
         camera.fov = 90 * Math.PI / 180;
         camera.minZ = .1;
-        camera.maxZ = 100;
+        camera.maxZ = 500;
+        
 
         // This attaches the camera to the canvas
         camera.attachControl(this.canvas, true);
@@ -181,6 +183,7 @@ class Game
         // Creates a default skybox
         const environment = this.scene.createDefaultEnvironment({
             createGround: false,
+            createSkybox: false
             //groundSize: 200
         });
 
@@ -190,7 +193,7 @@ class Game
         // Make sure the environment and skybox is not pickable!
         //environment!.ground!.isPickable = false;
         //environment!.ground!.position.y = -1;
-        environment!.skybox!.isPickable = false;
+        //environment!.skybox!.isPickable = false;
 
         // Creates the XR experience helper
         const xrHelper = await this.scene.createDefaultXRExperienceAsync({
@@ -398,7 +401,7 @@ class Game
 
             meshes[0].parent = root;
             //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-            root.position = new Vector3(-1,2,0);
+            root.position = new Vector3(-5,1,25);
             meshes[0].physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.SphereImpostor, {mass: 1}, this.scene);
             root.isVisible = false;
             root.isPickable = false;
@@ -637,7 +640,7 @@ class Game
         
         SceneLoader.ImportMesh("", "assets/models/", "golfcart.obj", this.scene, (meshes) => {
         var root = MeshBuilder.CreateBox("golfcart-root", {depth: 4, width:2, height: 2.75} ,this.scene);
-        root.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.BoxImpostor, {mass: 1}, this.scene);
+        //root.physicsImpostor = new PhysicsImpostor(root, PhysicsImpostor.BoxImpostor, {mass: 1}, this.scene);
         root.position = new Vector3(0,1.40);
         root.isPickable = false;
             
@@ -656,7 +659,8 @@ class Game
             //meshes[0].physicsImpostor.sleep();
 
             //root.rotation = new Vector3(0, 270* Math.PI/180, 20 * Math.PI/180);
-            root.position = new Vector3(0,5,5);
+            root.position = new Vector3(7,1.5,25);
+            root.rotation.y = 180*Math.PI/180;
             root.isVisible = false;
             root.isPickable = false;
 
@@ -693,12 +697,13 @@ class Game
             button1.onPointerUpObservable.add(()=>{
                 console.log('Put it in the Left');
                 this.bags[0].parent = this.carts[0];
-                this.bags[0].position = this.carts[0].position.add(new Vector3(-.4, -.75,-6.75));
+                this.bags[0].position = (new Vector3(-.5, .75,-1.6));
                 this.bags[0].rotation.y = 90 * Math.PI/180;
             }); 
             button2.onPointerUpObservable.add(()=>{
                 console.log('Put it in the Right');
-                this.bags[0].position = this.carts[0].position.add(new Vector3(.5, -.75,-6.75));
+                this.bags[0].parent = this.carts[0];
+                this.bags[0].position = (new Vector3(.5, .75,-1.6));
                 this.bags[0].rotation.y = 90 * Math.PI/180;
             }); 
             button3.onPointerUpObservable.add(()=>{
@@ -736,10 +741,10 @@ class Game
             text4.fontSize = 40;
             button4.content = text4;
 
-            this.buttons.push(button1);
-            this.buttons.push(button2);
-            this.buttons.push(button3);
-            this.buttons.push(button4);
+            this.buttons.push(button1);//4
+            this.buttons.push(button2);//5
+            this.buttons.push(button3);//6
+            this.buttons.push(button4);//7
 
             
 
@@ -831,6 +836,12 @@ class Game
         fairway.material = grassmat;
 
         fairway.physicsImpostor = new PhysicsImpostor(fairway, PhysicsImpostor.BoxImpostor, {mass:0 , restitution:.9}, this.scene);
+
+
+        this.makeHole();
+        this.xrCamera.position = new Vector3(0,1.5, -15);
+
+
         xrHelper.teleportation.addFloorMesh(fairway);
 
 
@@ -854,20 +865,20 @@ class Game
             //this.carts[0].physicsImpostor?.sleep();
         }
         if (this.count == 24 || this.carts[0].position.y > 5){
-            this.carts[0].physicsImpostor?.setLinearVelocity(new Vector3(0,0,0));
-            this.carts[0].physicsImpostor?.setAngularVelocity(new Vector3(0,0,0));
+            //this.carts[0].physicsImpostor?.setLinearVelocity(new Vector3(0,0,0));
+            //this.carts[0].physicsImpostor?.setAngularVelocity(new Vector3(0,0,0));
 
-            this.carts[0].position.y = 3;
+            this.carts[0].position.y = 1.5;
 
 
             //this.carts[0].position = new Vector3(0,0,5);
-            this.carts[0].rotation = new Vector3(0,0,0);
+            //this.carts[0].rotation = new Vector3(0,0,0);
         }
         if(this.inDrive){
-            this.xrCamera!.position = this.carts[0].position.add(new Vector3(.5,.6,.2));
+            this.xrCamera!.position = this.buttons[6].mesh!.absolutePosition.add(new Vector3(0,.5, 0));
         }
         if(this.inPass){
-            this.xrCamera!.position = this.carts[0].position.add(new Vector3(-.5, .6, .2));
+            this.xrCamera!.position = this.buttons[7].mesh!.absolutePosition.add(new Vector3(0,.5, 0));
         }
         if(this.leftController && this.rightController)
         {
@@ -912,36 +923,69 @@ class Game
     }
 
     // Process event handlers for controller input
+    private makeHole()
+    {
+        var hole = MeshBuilder.CreateTorus("hole", {diameter:5, thickness:.2, tessellation:20}, this.scene);
+        hole.position = new Vector3(0,0,-15);
+    }
+
     private processControllerInput()
     {
         this.onRightTrigger(this.rightController?.motionController?.getComponent("xr-standard-trigger"));
-        //this.onRightThumbstick(this.rightController?.motionController?.getComponent("xr-standard-thumbstick"));
+        this.onRightThumbstick(this.rightController?.motionController?.getComponent("xr-standard-thumbstick"));
         //this.onRightSqueeze(this.rightController?.motionController?.getComponent("xr-standard-squeeze"));
         //this.onLeftSqueeze(this.leftController?.motionController?.getComponent("xr-standard-squeeze"));
         this.onLeftTrigger(this.leftController?.motionController?.getComponent("xr-standard-trigger"));
     }
 
     private processSteering(anchor:Mesh, ball:Mesh)
-    {
-        var difference = anchor.position.subtract(ball.position);
-        if(difference.x > .3)
-        {
-            this.carts[0].rotation.y -= .5 * Math.PI/180;
-            this.xrCamera!.rotationQuaternion = this.xrCamera!.rotationQuaternion.toEulerAngles().subtract(new Vector3(0,.5 * Math.PI/180,0)).toQuaternion();
-        }
-        if(difference.x < -3)
-        {
-            this.carts[0].rotation.y += .5 * Math.PI/180;
-            this.xrCamera!.rotationQuaternion = this.xrCamera!.rotationQuaternion.toEulerAngles().add(new Vector3(0,.5 * Math.PI/180,0)).toQuaternion();
+    {   
 
-        }
-        if(difference.y > .3)
+        if(this.inDrive)
         {
-            this.carts[0].position = this.steeringBalls[2].position;
-        }
-        if(difference.y < -.3)
-        {
-            this.carts[0].position = this.carts[0].position.subtract(this.steeringBalls[2].position);
+            var difference = anchor.absolutePosition.subtract(ball.absolutePosition);
+            console.log(difference.x, 'and ',difference.y)
+            if(difference.x > .3)
+            {   
+                console.log('turning left');
+                //this.carts[0].rotation.y -= .5 * Math.PI/180;
+                var curX = this.xrCamera!.rotationQuaternion.toEulerAngles().x;
+                var curY = this.xrCamera!.rotationQuaternion.toEulerAngles().y;
+                var curZ = this.xrCamera!.rotationQuaternion.toEulerAngles().z;
+
+                //curY -= .5*Math.PI/180;
+
+                this.xrCamera!.rotationQuaternion = new Vector3(curX, curY, curZ).toQuaternion();
+                this.xrCamera!.position = this.buttons[6].mesh!.absolutePosition.add(new Vector3(0,.5, 0));
+
+            }
+            if(difference.x < -.3)
+            {
+                console.log('turning left');
+
+                //this.carts[0].rotation.y += .5 * Math.PI/180;
+                var curX = this.xrCamera!.rotationQuaternion.toEulerAngles().x;
+                var curY = this.xrCamera!.rotationQuaternion.toEulerAngles().y;
+                var curZ = this.xrCamera!.rotationQuaternion.toEulerAngles().z;
+
+                //curY += .5*Math.PI/180;
+
+                this.xrCamera!.rotationQuaternion = new Vector3(curX, curY, curZ).toQuaternion();
+                this.xrCamera!.position = this.buttons[6].mesh!.absolutePosition.add(new Vector3(0,.5, 0));
+
+            }
+            if(difference.y > .3)
+            {
+                console.log('forward ');
+
+                //this.carts[0].position = this.carts[0].position.add(this.steeringBalls[2].position);
+            }
+            if(difference.y < -.3)
+            {
+                console.log('backward ');
+
+                //this.carts[0].position = this.carts[0].position.subtract(this.steeringBalls[2].position);
+            }
         }
     }
 
@@ -968,17 +1012,17 @@ class Game
 
         if(this.clubs[temp].name.includes("driv")){
             // do the medium height impulse
-            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,1,0)), this.balls[temp2].getAbsolutePosition());
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.balls[temp2].absolutePosition.subtract(this.clubs[temp].absolutePosition.subtract(this.xrCamera!.position)).add(new Vector3(0,1,0)).scale(-1), this.balls[temp2].getAbsolutePosition());
             //this.balls[temp2].physicsImpostor!.applyImpulse( new Vector3(0,3,3), this.balls[temp2].getAbsolutePosition());
 
         }
         else if(this.clubs[temp].name.includes("iron")){
             // do the high height impulse
-            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,2,0)), this.balls[temp2].getAbsolutePosition());
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.balls[temp2].absolutePosition.subtract(this.clubs[temp].absolutePosition.subtract(this.xrCamera!.position)).add(new Vector3(0,2,0)).scale(1), this.balls[temp2].getAbsolutePosition());
         }
         else {
             // do the low height impulse
-            this.balls[temp2].physicsImpostor!.applyImpulse( this.clubs[temp].position.subtract(this.balls[temp2].position).add(new Vector3(0,.5,0)), this.balls[temp2].getAbsolutePosition());
+            this.balls[temp2].physicsImpostor!.applyImpulse( this.balls[temp2].absolutePosition.subtract(this.clubs[temp].absolutePosition.subtract(this.xrCamera!.position)).add(new Vector3(0,.5,0)).scale(-1), this.balls[temp2].getAbsolutePosition()); 
         }
     }
 
@@ -1128,6 +1172,39 @@ class Game
             }
         }
     }
+
+
+    private onRightThumbstick(component?: WebXRControllerComponent)
+    {
+        if(this.inDrive)
+        {
+            if(component?.changes.axes)
+            {
+                
+                // View-directed steering
+                
+                {
+                    // Get the current camera direction
+                    var directionVector = this.xrCamera!.getDirection(Axis.Z);
+
+                    // Use delta time to calculate the move distance based on speed of 3 m/sec
+                    var moveDistance = -component.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
+
+                    // Translate the camera forward
+                    this.xrCamera!.position.addInPlace(new Vector3(directionVector.scale(moveDistance).x, 0, directionVector.scale(moveDistance).z));
+                    this.carts[0].position.addInPlace(new Vector3(directionVector.scale(moveDistance).x, 0, directionVector.scale(moveDistance).z));
+
+                    var curY = this.xrCamera!.rotationQuaternion.toEulerAngles().y;
+                    this.carts[0].rotation.y = curY;
+                    
+                
+                    
+                }
+            
+            }
+        }
+    }
+
 
     
 
