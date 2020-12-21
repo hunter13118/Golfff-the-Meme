@@ -52,7 +52,7 @@ import "@babylonjs/core/Materials/standardMaterial"
 import "@babylonjs/loaders/OBJ/objFileLoader"
 import "@babylonjs/loaders/glTF/2.0/glTFLoader"
 import { ActionManager } from "@babylonjs/core/Actions/actionManager";
-import { GroundBuilder, SetValueAction, Texture } from "@babylonjs/core";
+import { GroundBuilder, SetValueAction, Texture, VertexOutputBlock } from "@babylonjs/core";
 
 class Game 
 { 
@@ -88,6 +88,8 @@ class Game
     private count : number;
     private carts : Array<Mesh>;
 
+    private steeringBalls: Array<Mesh>;
+
     private inDrive: boolean;
     private inPass: boolean;
     
@@ -121,6 +123,7 @@ class Game
         this.bags = [];
         this.buttons = [];
         this.carts = [];
+        this.steeringBalls = [];
 
         this.pickInfo = null;
 
@@ -738,9 +741,42 @@ class Game
             this.buttons.push(button3);
             this.buttons.push(button4);
 
+            
+
+
+
+
+            //the difference in position with these balls will indicate forward, back, left rotate, right rotate
+
+            // there will be a generous clearance to actually trigger a movement because.... yea.
+
             this.carts.push(root);
 
+
+            // will be 2 balls... one will be fixed to the center of the steering wheel while the other can be dragged around
+            var steeringball = MeshBuilder.CreateSphere("steering ball", {segments : 20, diameter:.1}, this.scene);
+            steeringball.position = new Vector3 (0,0,0);
+            steeringball.parent = this.carts[0];
+            steeringball.position = new Vector3(.455,.248,.491);
+            steeringball.isPickable = false;
+            var rootball = MeshBuilder.CreateSphere("root ball", {segments : 20, diameter:.1}, this.scene);
+            rootball.position = new Vector3 (0,0,0);
+            rootball.parent = this.carts[0];
+            rootball.position = new Vector3(.455,.248,.491);
+            rootball.isPickable = false;
+            var forwardball = MeshBuilder.CreateSphere("forward ball", {segments : 20, diameter:.1}, this.scene);
+            forwardball.position = new Vector3 (0,0,0);
+            forwardball.parent = this.carts[0];
+            forwardball.position = new Vector3(0,0,.05);
+            forwardball.isPickable = false;
+            this.steeringBalls.push(rootball);
+            this.steeringBalls.push(steeringball);
+            this.steeringBalls.push(forwardball);
+
         });
+
+        //make the driving mechanic
+            
 
 
 
@@ -810,6 +846,9 @@ class Game
     private update() : void
     {
 
+
+        this.processSteering(this.steeringBalls[0], this.steeringBalls[1]);
+
         if (this.count < 25){
             this.count++;
             //this.carts[0].physicsImpostor?.sleep();
@@ -825,10 +864,10 @@ class Game
             this.carts[0].rotation = new Vector3(0,0,0);
         }
         if(this.inDrive){
-            this.xrCamera!.position = this.carts[0].position.add(new Vector3(.5,1,0));
+            this.xrCamera!.position = this.carts[0].position.add(new Vector3(.5,.6,.2));
         }
         if(this.inPass){
-            this.xrCamera!.position = this.carts[0].position.add(new Vector3(-.5, 1, 0));
+            this.xrCamera!.position = this.carts[0].position.add(new Vector3(-.5, .6, .2));
         }
         if(this.leftController && this.rightController)
         {
@@ -882,6 +921,30 @@ class Game
         this.onLeftTrigger(this.leftController?.motionController?.getComponent("xr-standard-trigger"));
     }
 
+    private processSteering(anchor:Mesh, ball:Mesh)
+    {
+        var difference = anchor.position.subtract(ball.position);
+        if(difference.x > .3)
+        {
+            this.carts[0].rotation.y -= .5 * Math.PI/180;
+            this.xrCamera!.rotationQuaternion = this.xrCamera!.rotationQuaternion.toEulerAngles().subtract(new Vector3(0,.5 * Math.PI/180,0)).toQuaternion();
+        }
+        if(difference.x < -3)
+        {
+            this.carts[0].rotation.y += .5 * Math.PI/180;
+            this.xrCamera!.rotationQuaternion = this.xrCamera!.rotationQuaternion.toEulerAngles().add(new Vector3(0,.5 * Math.PI/180,0)).toQuaternion();
+
+        }
+        if(difference.y > .3)
+        {
+            this.carts[0].position = this.steeringBalls[2].position;
+        }
+        if(difference.y < -.3)
+        {
+            this.carts[0].position = this.carts[0].position.subtract(this.steeringBalls[2].position);
+        }
+    }
+
     private clubToBall(club: number, ball:number){
         var temp = club;
         var temp2 = ball;
@@ -926,59 +989,73 @@ class Game
         {
             if(component?.pressed)
             {
-
-                var pickInfo = this.pickInfo;
                 
 
-                
-
-                // Deselect the currently selected object 
-                if(this.selectedObject)
+                if(this.inDrive)
                 {
-                    this.selectedObject.disableEdgesRendering(); 
-                    this.selectedObject = null;
-                    this.selectedRoot = null;
+                    this.steeringBalls[1].parent = null;
+                    //this.steeringBalls[1].position = this.rightController!.pointer.position;
+                    this.steeringBalls[1].parent = this.rightController!.grip!;
+                    this.steeringBalls[1].position = new Vector3(0,0,0);
+
                 }
+                else{
+                    var pickInfo = this.pickInfo;
+                    
 
-                // If an object was hit, select it
-                if(pickInfo?.hit)
-                {
-                    this.selectedObject = pickInfo!.pickedMesh;
-                    this.selectedRoot = <Mesh>pickInfo!.pickedMesh!.parent;
-                    this.selectedObject!.enableEdgesRendering();
-                    //this.selectedRoot!.position = this.rightController!.pointer!.position;
-                    if (this.bags.includes(<Mesh>this.selectedObject!)){
-                        this.buttons[0].mesh?.setEnabled(true);
-                        this.buttons[1].mesh?.setEnabled(true);
-                        this.buttons[2].mesh?.setEnabled(true);
-                        this.buttons[3].mesh?.setEnabled(true);
+                    
 
-                    }
-                    // we gotta kill the objects overall physics so that we can move?
-                    else
+                    // Deselect the currently selected object 
+                    if(this.selectedObject)
                     {
-                        this.selectedObject!.physicsImpostor?.sleep();
+                        this.selectedObject.disableEdgesRendering(); 
+                        this.selectedObject = null;
+                        this.selectedRoot = null;
+                    }
 
-                        this.selectedRoot!.position = new Vector3(0,0,0);
+                    // If an object was hit, select it
+                    if(pickInfo?.hit)
+                    {
+                        this.selectedObject = pickInfo!.pickedMesh;
+                        this.selectedRoot = <Mesh>pickInfo!.pickedMesh!.parent;
+                        this.selectedObject!.enableEdgesRendering();
+                        //this.selectedRoot!.position = this.rightController!.pointer!.position;
+                        if (this.bags.includes(<Mesh>this.selectedObject!)){
+                            this.buttons[0].mesh?.setEnabled(true);
+                            this.buttons[1].mesh?.setEnabled(true);
+                            this.buttons[2].mesh?.setEnabled(true);
+                            this.buttons[3].mesh?.setEnabled(true);
 
-                        if(this.clubs.includes(<Mesh>this.selectedObject!)){
-                            /*
-                            this.selectedRoot!.rotate(new Vector3(1,0,0), -this.selectedRoot!.rotation.x + 183 *Math.PI/180, Space.LOCAL);
-                            this.selectedRoot!.rotate(new Vector3(0,1,0), -this.selectedRoot!.rotation.y +91 *Math.PI/180, Space.LOCAL);
-                            this.selectedRoot!.rotate(new Vector3(0,0,1), -this.selectedRoot!.rotation.z +217 *Math.PI/180, Space.LOCAL);
-                            */
-                            this.selectedRoot!.rotationQuaternion = new Vector3(183*Math.PI/180, 91* Math.PI/180, 217 * Math.PI/180).toQuaternion();
                         }
-                        this.selectedRoot!.parent = this.rightController!.grip!;
+                        // we gotta kill the objects overall physics so that we can move?
+                        else
+                        {
+                            this.selectedObject!.physicsImpostor?.sleep();
 
-                        // Parent the object to the transform on the laser pointer
-                        //this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
-                        //this.selectedRoot!.setParent(this.selectionTransform!);
-                        }
+                            this.selectedRoot!.position = new Vector3(0,0,0);
+
+                            if(this.clubs.includes(<Mesh>this.selectedObject!)){
+                                /*
+                                this.selectedRoot!.rotate(new Vector3(1,0,0), -this.selectedRoot!.rotation.x + 183 *Math.PI/180, Space.LOCAL);
+                                this.selectedRoot!.rotate(new Vector3(0,1,0), -this.selectedRoot!.rotation.y +91 *Math.PI/180, Space.LOCAL);
+                                this.selectedRoot!.rotate(new Vector3(0,0,1), -this.selectedRoot!.rotation.z +217 *Math.PI/180, Space.LOCAL);
+                                */
+                                this.selectedRoot!.rotationQuaternion = new Vector3(183*Math.PI/180, 91* Math.PI/180, 217 * Math.PI/180).toQuaternion();
+                            }
+                            this.selectedRoot!.parent = this.rightController!.grip!;
+
+                            // Parent the object to the transform on the laser pointer
+                            //this.selectionTransform!.position = new Vector3(0, 0, pickInfo.distance);
+                            //this.selectedRoot!.setParent(this.selectionTransform!);
+                            }
+                    }
                 }
             }
             else
             {
+
+                this.steeringBalls[1].parent = this.carts[0];
+                this.steeringBalls[1].position = new Vector3(.455,.248,.491);
                 // Reset the laser pointer color
                 this.pickInfo = null;
                 // Release the object from the laser pointer
